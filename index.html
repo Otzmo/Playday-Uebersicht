@@ -81,6 +81,19 @@
   .dot.konflikt{ background: var(--conflict); }
   .dot.moeglich{ background: var(--moeglich); }
 
+  .uebernahme{
+    display: none; margin: 18px 0 0; padding: 14px 16px;
+    background: var(--panel); border: 1px solid var(--gold); border-radius: 10px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .uebernahme.aktiv{ display: block; }
+  .uebernahme p{ margin: 0 0 12px; }
+  .uebernahme-knoepfe{ display: flex; gap: 8px; flex-wrap: wrap; }
+  .uebernahme-knoepfe button{ flex: 1; min-width: 150px; margin-top: 0; }
+
+  #speicherStatus.getrennt{ color: var(--moeglich); }
+  #speicherStatus.fehlt{ color: var(--conflict); }
+
   #warnungen{
     margin: 18px 0 0; padding: 12px 14px; background: var(--conflict-bg);
     border: 1px solid var(--conflict); border-radius: 10px; font-size: 13px;
@@ -274,6 +287,14 @@
     <span><span class="dot konflikt"></span> Konflikt</span>
   </div>
 
+  <div class="uebernahme" id="uebernahme">
+    <p id="uebernahmeText"></p>
+    <div class="uebernahme-knoepfe">
+      <button class="btn-hinzufuegen" id="btnUebernehmen">Lokale Regeln übernehmen</button>
+      <button class="btn-abbrechen" id="btnUebernahmeVerwerfen" style="display:block;">Verwerfen</button>
+    </div>
+  </div>
+
   <div id="warnungen" role="status" aria-live="polite"></div>
 
   <div id="woche"></div>
@@ -319,7 +340,10 @@
     <button class="zuruecksetzen" id="btnZuruecksetzen">Alle Regeln löschen</button>
   </div>
 
-  <footer>Ein-Wochen-Vorlage, gilt für jede Kalenderwoche gemäß Rhythmus der einzelnen Slots.<br>Änderungen werden aktuell nur in diesem Browser gespeichert (noch nicht geteilt).</footer>
+  <footer>
+    Ein-Wochen-Vorlage, gilt für jede Kalenderwoche gemäß Rhythmus der einzelnen Slots.<br>
+    <span id="speicherStatus">Verbinde mit der Vereins-Datenbank …</span>
+  </footer>
 </div>
 
 <script>
@@ -418,13 +442,71 @@ function ladeRegeln(){
   }
 }
 
-function speichereRegeln(regeln){
+function lokalSichern(regeln){
   try {
     localStorage.setItem(SPEICHER_KEY, JSON.stringify(regeln));
     speicherFehler = false;
   } catch(e){
     speicherFehler = true;
   }
+}
+
+/* Letzter vom Server bestätigter Stand als {id: daten}. Grundlage dafür,
+   beim Schreiben nur die tatsächlich geänderten Regeln zu schicken. */
+let serverStand = {};
+
+function alsServerDaten(regel){
+  const daten = {
+    system: regel.system,
+    slots: regel.slots,
+    rhythmus: regel.rhythmus,
+    farbe: regel.farbe
+  };
+  if (regel.startDatum) daten.startDatum = regel.startDatum;
+  return daten;
+}
+
+/* Liefert nur die Pfade, die sich geändert haben; null löscht einen Pfad.
+   Damit überschreibt niemand die Änderung eines anderen, der zeitgleich
+   eine andere Regel bearbeitet. */
+function unterschiedeZumServer(regeln){
+  const aenderungen = {};
+  const jetzt = {};
+
+  regeln.forEach(regel => {
+    jetzt[regel.id] = alsServerDaten(regel);
+    if (JSON.stringify(jetzt[regel.id]) !== JSON.stringify(serverStand[regel.id])){
+      aenderungen["regeln/" + regel.id] = jetzt[regel.id];
+    }
+  });
+
+  Object.keys(serverStand).forEach(id => {
+    if (!jetzt[id]) aenderungen["regeln/" + id] = null;
+  });
+
+  return aenderungen;
+}
+
+function merkeServerStand(regeln){
+  serverStand = {};
+  regeln.forEach(regel => { serverStand[regel.id] = alsServerDaten(regel); });
+}
+
+/* Einziger Weg, eine Änderung festzuhalten: immer lokal als Zwischen-
+   speicher, und zusätzlich in die Datenbank, sobald sie verbunden ist. */
+function speichereRegeln(regeln){
+  lokalSichern(regeln);
+
+  if (typeof window.ppbSchreibe !== "function") return;
+
+  const aenderungen = unterschiedeZumServer(regeln);
+  if (Object.keys(aenderungen).length === 0) return;
+
+  window.ppbSchreibe(aenderungen);
+  /* Eigenen Stand sofort nachziehen, statt auf das Echo des Servers zu
+     warten – sonst schickt der nächste Schreibvorgang dieselbe Änderung
+     noch einmal und könnte dabei eine fremde überschreiben. */
+  merkeServerStand(regeln);
 }
 
 function sichereFarbe(farbe){
@@ -441,6 +523,10 @@ const SUFFIX = {
 
 /* Erst hier, weil die Validierung in ladeRegeln SUFFIX braucht. */
 let REGELN = ladeRegeln();
+
+/* Der lokale Stand beim Seitenaufruf. Wird gebraucht, um beim ersten
+   Verbinden anzubieten, ihn in die noch leere Datenbank zu übernehmen. */
+const LOKALE_REGELN_BEIM_START = REGELN.map(regel => Object.assign({}, regel));
 
 /* ============================================================
    SLOT-DEFINITION – die einzige Quelle für Tage, Slots, Zeiten und
@@ -1186,8 +1272,143 @@ document.getElementById("btnZuruecksetzen").addEventListener("click", () => {
   renderVerwaltung();
 });
 
+/* ============================================================
+   ANBINDUNG AN DIE DATENBANK
+   Das Firebase-Modul am Seitenende ruft ppbServerDaten,
+   ppbVerbindung und ppbFehler auf und stellt ppbSchreibe bereit.
+   Lädt es nicht (offline, blockiert), bleibt die Seite bedienbar
+   und arbeitet nur mit dem lokalen Zwischenspeicher weiter.
+   ============================================================ */
+let datenbankAntwortete = false;
+let uebernahmeGeprueft = false;
+
+function setzeSpeicherStatus(status, zusatz){
+  const el = document.getElementById("speicherStatus");
+  el.classList.remove("getrennt", "fehlt");
+
+  if (status === "verbunden"){
+    el.textContent = "Mit der Vereins-Datenbank verbunden – Änderungen sehen alle.";
+  } else if (status === "getrennt"){
+    el.classList.add("getrennt");
+    el.textContent = "Keine Verbindung zur Datenbank – Anzeige aus dem lokalen Zwischenspeicher. " +
+      "Änderungen werden nachgereicht, sobald die Verbindung steht und die Seite offen bleibt.";
+  } else {
+    el.classList.add("fehlt");
+    el.textContent = "Datenbank nicht erreichbar" + (zusatz ? " (" + zusatz + ")" : "") +
+      " – Änderungen bleiben nur in diesem Browser.";
+  }
+}
+
+function ppbServerDaten(rohdaten){
+  datenbankAntwortete = true;
+  setzeSpeicherStatus("verbunden");
+
+  const ausDatenbank = [];
+
+  if (rohdaten && typeof rohdaten === "object"){
+    Object.keys(rohdaten).forEach(id => {
+      const eintrag = Object.assign({}, rohdaten[id], { id: id });
+      if (!istGueltigeRegel(eintrag)) return;
+      ausDatenbank.push(mitStartdatum(eintrag));
+    });
+  }
+
+  // Ab jetzt gilt die Datenbank, nicht mehr der lokale Stand.
+  REGELN = ausDatenbank;
+  merkeServerStand(REGELN);
+  lokalSichern(REGELN);
+  renderWoche();
+  renderVerwaltung();
+  pruefeUebernahme();
+}
+
+function ppbVerbindung(verbunden){
+  if (verbunden){
+    datenbankAntwortete = true;
+    setzeSpeicherStatus("verbunden");
+  } else if (datenbankAntwortete){
+    setzeSpeicherStatus("getrennt");
+  }
+}
+
+function ppbFehler(meldung){
+  setzeSpeicherStatus("fehlt", meldung);
+}
+
+/* Einmalig anbieten: lokal vorhandene Regeln in eine noch leere
+   Datenbank hochladen, damit nichts doppelt getippt werden muss. */
+function pruefeUebernahme(){
+  if (uebernahmeGeprueft) return;
+  uebernahmeGeprueft = true;
+
+  if (REGELN.length > 0 || LOKALE_REGELN_BEIM_START.length === 0) return;
+
+  const anzahl = LOKALE_REGELN_BEIM_START.length;
+  document.getElementById("uebernahmeText").textContent = anzahl === 1
+    ? "In diesem Browser ist noch eine Regel gespeichert, die nicht in der gemeinsamen Datenbank steht. Übernehmen?"
+    : "In diesem Browser sind noch " + anzahl + " Regeln gespeichert, die nicht in der gemeinsamen Datenbank stehen. Übernehmen?";
+  document.getElementById("uebernahme").classList.add("aktiv");
+}
+
+document.getElementById("btnUebernehmen").addEventListener("click", () => {
+  document.getElementById("uebernahme").classList.remove("aktiv");
+  REGELN = mitIds(LOKALE_REGELN_BEIM_START);
+  speichereRegeln(REGELN);
+  renderWoche();
+  renderVerwaltung();
+});
+
+document.getElementById("btnUebernahmeVerwerfen").addEventListener("click", () => {
+  document.getElementById("uebernahme").classList.remove("aktiv");
+});
+
+/* Meldet sich das Modul gar nicht, ist das SDK nicht geladen. */
+setTimeout(() => {
+  if (!datenbankAntwortete) setzeSpeicherStatus("fehlt");
+}, 8000);
+
 baueSlotAuswahl();
 renderWoche();
+</script>
+
+<!-- ============================================================
+     FIREBASE – getrennt vom übrigen Script, weil es als Modul
+     geladen wird. Schlägt das Laden fehl, läuft die Seite oben
+     unverändert weiter und nutzt nur den lokalen Zwischenspeicher.
+     Die Werte hier sind keine Geheimnisse: Sie benennen das Projekt.
+     Der Schutz kommt aus den Datenbankregeln.
+     ============================================================ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getDatabase, ref, onValue, update }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAaJnnjszYwNcCF9v7RM2aTSBAjOJZ2Izo",
+  authDomain: "spieltageuebersicht.firebaseapp.com",
+  databaseURL: "https://spieltageuebersicht-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "spieltageuebersicht",
+  storageBucket: "spieltageuebersicht.firebasestorage.app",
+  messagingSenderId: "760964482295",
+  appId: "1:760964482295:web:3b13fd71326f4d249e7ff2"
+};
+
+try {
+  const datenbank = getDatabase(initializeApp(firebaseConfig));
+
+  window.ppbSchreibe = (aenderungen) => {
+    update(ref(datenbank), aenderungen).catch(fehler => window.ppbFehler(fehler.message));
+  };
+
+  onValue(ref(datenbank, "regeln"),
+    schnappschuss => window.ppbServerDaten(schnappschuss.val()),
+    fehler => window.ppbFehler(fehler.message));
+
+  onValue(ref(datenbank, ".info/connected"),
+    schnappschuss => window.ppbVerbindung(schnappschuss.val() === true));
+} catch (fehler){
+  window.ppbFehler(fehler.message);
+}
 </script>
 
 </body>
