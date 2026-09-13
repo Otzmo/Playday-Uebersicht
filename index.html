@@ -316,7 +316,7 @@
       <button class="btn-abbrechen" id="btnAbbrechen" style="display:none;">Bearbeiten abbrechen</button>
     </div>
 
-    <button class="zuruecksetzen" id="btnZuruecksetzen">Auf Standard-Regeln zurücksetzen</button>
+    <button class="zuruecksetzen" id="btnZuruecksetzen">Alle Regeln löschen</button>
   </div>
 
   <footer>Ein-Wochen-Vorlage, gilt für jede Kalenderwoche gemäß Rhythmus der einzelnen Slots.<br>Änderungen werden aktuell nur in diesem Browser gespeichert (noch nicht geteilt).</footer>
@@ -324,18 +324,18 @@
 
 <script>
 /* ============================================================
-   STANDARD-REGELN – Ausgangszustand, falls im Browser noch
-   nichts gespeichert ist. Über "Auf Standard-Regeln zurücksetzen"
-   kommt man wieder hierhin zurück.
+   AUSGANGSZUSTAND – leer. Die Woche startet ohne Belegung, alle
+   Regeln werden über "Bearbeiten" angelegt. "Alle Regeln löschen"
+   führt wieder hierhin zurück.
+
+   Sollen später feste Runden vorbelegt sein, kommen sie hier als
+   Einträge hinein, z. B.:
+   { id: "kill-team", system: "Kill Team", farbe: "#8E7CC3",
+     slots: ["samstag_vormittag"], rhythmus: "jede_woche" }
+   Für "alle_4_wochen" / "alle_8_wochen" zusätzlich
+   startDatum: "JJJJ-MM-TT" – der erste Termin der Runde.
    ============================================================ */
-const STANDARD_REGELN = [
-  // startDatum ist ein Platzhalter – auf einen echten Termin dieser Runde
-  // anpassen. Ohne Startdatum steht in der Übersicht "Datum unbekannt".
-  { id: "std-old-world", system: "Warhammer: The Old World", farbe: "#C6A15B", slots: ["samstag_nachmittag"], rhythmus: "alle_4_wochen", startDatum: "2026-01-05" },
-  { id: "std-necromunda", system: "Necromunda", farbe: "#7C9885", slots: ["sonntag_nachmittag"], rhythmus: "ungerade_wochen" },
-  { id: "std-kill-team", system: "Kill Team", farbe: "#8E7CC3", slots: ["samstag_vormittag"], rhythmus: "jede_woche" },
-  { id: "std-frostgrave", system: "Frostgrave", farbe: "#5B8FA8", slots: ["samstag_vormittag"], rhythmus: "gerade_wochen" }
-];
+const STANDARD_REGELN = [];
 
 const SPEICHER_KEY = "ppb-playday-regeln";
 
@@ -1169,14 +1169,14 @@ document.getElementById("btnZuruecksetzen").addEventListener("click", () => {
     clearTimeout(zuruecksetzenTimer);
     zuruecksetzenTimer = setTimeout(() => {
       btn.classList.remove("bestaetigen");
-      btn.textContent = "Auf Standard-Regeln zurücksetzen";
+      btn.textContent = "Alle Regeln löschen";
     }, BESTAETIGUNG_MS);
     return;
   }
 
   clearTimeout(zuruecksetzenTimer);
   btn.classList.remove("bestaetigen");
-  btn.textContent = "Auf Standard-Regeln zurücksetzen";
+  btn.textContent = "Alle Regeln löschen";
 
   REGELN = standardKopie();
   setzeLoeschKandidat(null);
