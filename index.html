@@ -1279,29 +1279,46 @@ document.getElementById("btnZuruecksetzen").addEventListener("click", () => {
    Lädt es nicht (offline, blockiert), bleibt die Seite bedienbar
    und arbeitet nur mit dem lokalen Zwischenspeicher weiter.
    ============================================================ */
-let datenbankAntwortete = false;
 let uebernahmeGeprueft = false;
 
-function setzeSpeicherStatus(status, zusatz){
+/* Drei unabhängige Angaben, aus denen sich die Statuszeile ergibt.
+   "Verbunden" wird nur gemeldet, wenn auch wirklich Daten angekommen
+   sind – sonst würde eine bestehende Verbindung einen abgelehnten
+   Lesezugriff überdecken und "verbunden" anzeigen, obwohl nichts geht. */
+let verbindungSteht = false;
+let datenAngekommen = false;
+let letzterFehler = null;
+
+function zeigeSpeicherStatus(){
   const el = document.getElementById("speicherStatus");
   el.classList.remove("getrennt", "fehlt");
 
-  if (status === "verbunden"){
-    el.textContent = "Mit der Vereins-Datenbank verbunden – Änderungen sehen alle.";
-  } else if (status === "getrennt"){
-    el.classList.add("getrennt");
-    el.textContent = "Keine Verbindung zur Datenbank – Anzeige aus dem lokalen Zwischenspeicher. " +
-      "Änderungen werden nachgereicht, sobald die Verbindung steht und die Seite offen bleibt.";
-  } else {
+  if (letzterFehler){
     el.classList.add("fehlt");
-    el.textContent = "Datenbank nicht erreichbar" + (zusatz ? " (" + zusatz + ")" : "") +
-      " – Änderungen bleiben nur in diesem Browser.";
+    el.textContent = "Datenbank nicht erreichbar (" + letzterFehler + ") – " +
+      "Änderungen bleiben nur in diesem Browser.";
+    return;
   }
+
+  if (!datenAngekommen){
+    el.textContent = "Verbinde mit der Vereins-Datenbank …";
+    return;
+  }
+
+  if (verbindungSteht){
+    el.textContent = "Mit der Vereins-Datenbank verbunden – Änderungen sehen alle.";
+    return;
+  }
+
+  el.classList.add("getrennt");
+  el.textContent = "Keine Verbindung zur Datenbank – Anzeige aus dem lokalen Zwischenspeicher. " +
+    "Änderungen werden nachgereicht, sobald die Verbindung steht und die Seite offen bleibt.";
 }
 
 function ppbServerDaten(rohdaten){
-  datenbankAntwortete = true;
-  setzeSpeicherStatus("verbunden");
+  datenAngekommen = true;
+  letzterFehler = null;
+  zeigeSpeicherStatus();
 
   const ausDatenbank = [];
 
@@ -1323,16 +1340,13 @@ function ppbServerDaten(rohdaten){
 }
 
 function ppbVerbindung(verbunden){
-  if (verbunden){
-    datenbankAntwortete = true;
-    setzeSpeicherStatus("verbunden");
-  } else if (datenbankAntwortete){
-    setzeSpeicherStatus("getrennt");
-  }
+  verbindungSteht = verbunden;
+  zeigeSpeicherStatus();
 }
 
 function ppbFehler(meldung){
-  setzeSpeicherStatus("fehlt", meldung);
+  letzterFehler = meldung || "keine Antwort";
+  zeigeSpeicherStatus();
 }
 
 /* Einmalig anbieten: lokal vorhandene Regeln in eine noch leere
@@ -1364,7 +1378,7 @@ document.getElementById("btnUebernahmeVerwerfen").addEventListener("click", () =
 
 /* Meldet sich das Modul gar nicht, ist das SDK nicht geladen. */
 setTimeout(() => {
-  if (!datenbankAntwortete) setzeSpeicherStatus("fehlt");
+  if (!datenAngekommen && !letzterFehler) ppbFehler("keine Antwort");
 }, 8000);
 
 baueSlotAuswahl();
