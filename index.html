@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spieltage-Übersicht</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Die Seite ist bewusst durchgehend dunkel – damit übernehmen auch
+       Eingabefelder, Scrollbalken und Auswahlmenüs das dunkle Schema. */
+    color-scheme: dark;
+
+    --bg: #1B1D21;
+    --panel: #24272C;
+    --panel-line: #33363C;
+    --gold: #C6A15B;
+    --text: #E9E4D8;
+    --text-muted: #8B8D92;
+    --conflict: #C1443B;
+    --conflict-bg: #2E2222;
+    --moeglich: #B98A3E;
+    --moeglich-bg: #2C2620;
+    --free-line: #3A3D43;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap{ max-width: 640px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  header{ margin-bottom: 28px; display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; }
+
+  header .club{ font-size: 13px; color: var(--gold); margin: 0 0 6px; }
+
+  h1{ font-family:'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0 0 10px; }
+
+  header p.sub{ color: var(--text-muted); font-size: 14px; margin: 0; line-height: 1.5; }
+
+  button{
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    border: none;
+  }
+
+  .header-buttons{ display:flex; flex-direction:column; gap: 8px; flex-shrink: 0; }
+
+  .btn-bearbeiten{
+    flex-shrink: 0;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .btn-bearbeiten.aktiv{ background: var(--gold); color: #1B1D21; border-color: var(--gold); }
+
+  .legende{
+    display:flex; flex-wrap: wrap; gap: 14px;
+    margin: 20px 0 4px; padding: 14px 16px;
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px;
+    font-size: 12.5px; color: var(--text-muted);
+  }
+  .legende span{ display:flex; align-items:center; gap: 7px; }
+  .dot{ width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  /* Belegte Slots tragen die Farbe ihres Systems – der Punkt zeigt darum
+     mehrere Farben statt einer, die so nirgends vorkommt. */
+  .dot.belegt{ background: linear-gradient(135deg, #C6A15B 0 34%, #7C9885 34% 67%, #8E7CC3 67% 100%); }
+  .dot.frei{ background: transparent; border: 1.5px dashed var(--free-line); }
+  .dot.konflikt{ background: var(--conflict); }
+  .dot.moeglich{ background: var(--moeglich); }
+
+  #warnungen{
+    margin: 18px 0 0; padding: 12px 14px; background: var(--conflict-bg);
+    border: 1px solid var(--conflict); border-radius: 10px; font-size: 13px;
+    color: #E8C9C4; display: none;
+  }
+  #warnungen.aktiv{ display:block; }
+  #warnungen strong{ color: var(--conflict); display:block; margin-bottom:6px; font-size:12.5px; }
+  #warnungen ul{ margin: 0; padding-left: 18px; }
+  #warnungen li{ margin-bottom: 4px; }
+
+  #woche{ margin-top: 30px; }
+
+  .tag{ display:flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--panel-line); }
+  .tag:last-child{ border-bottom: none; }
+
+  .tag-name{ flex: 0 0 40px; padding-top: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+  .slots{ flex: 1; display:flex; flex-direction: column; gap: 8px; }
+
+  .slot{
+    display:flex; align-items: baseline; gap: 10px; padding: 8px 10px;
+    border-radius: 8px; background: var(--panel); border: 1px solid var(--panel-line);
+  }
+  .slot .zeit{ font-size: 12px; color: var(--text-muted); flex: 0 0 88px; }
+  .slot .inhalt{ font-size: 14px; font-weight: 500; display:flex; flex-direction:column; gap:3px; flex: 1; }
+  .eintrag{ display:flex; align-items:center; gap: 6px; }
+  .suffix{ color: var(--text-muted); font-weight: 400; font-size: 12.5px; }
+
+  .slot.frei{ background: transparent; border-style: dashed; border-color: var(--free-line); }
+  .slot.frei .inhalt{ color: var(--text-muted); font-weight: 400; }
+
+  .slot.konflikt{ background: var(--conflict-bg); border-color: var(--conflict); }
+  .slot.konflikt .zeit{ color: #D69890; }
+  .slot.konflikt .hinweis{ color: var(--conflict); font-size: 12px; margin-top: 4px; }
+
+  .slot.moeglich{ background: var(--moeglich-bg); border-color: var(--moeglich); }
+  .slot.moeglich .zeit{ color: #D8B27E; }
+  .slot.moeglich .hinweis{ color: var(--moeglich); font-size: 12px; margin-top: 4px; }
+
+  .system-chip{ display:inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink:0; }
+
+  /* --- Bearbeitungsbereich --- */
+  #verwaltung{ display: none; margin-top: 36px; }
+  #verwaltung.aktiv{ display: block; }
+
+  .verwaltung-titel{
+    font-family:'Fraunces', serif; font-size: 16px; font-weight: 600;
+    color: var(--gold); margin: 0 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+
+  .regel-zeile{
+    display:flex; align-items:center; gap: 10px; padding: 10px;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 8px; margin-bottom: 8px; font-size: 13.5px;
+  }
+  .regel-zeile .system-chip{ flex-shrink:0; }
+  .regel-zeile .info{ flex: 1; }
+  .regel-zeile .info .name{ font-weight: 500; }
+  .regel-zeile .info .details{ color: var(--text-muted); font-size: 12px; margin-top: 1px; }
+  .regel-zeile.wird-bearbeitet{ border-color: var(--gold); }
+
+  .regel-aktionen{ display: flex; gap: 6px; flex-shrink: 0; }
+  .regel-loeschen{
+    background: transparent; color: var(--conflict); font-size: 12px;
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--conflict);
+  }
+  .regel-bearbeiten{
+    background: transparent; color: var(--text-muted); font-size: 12px;
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--panel-line);
+  }
+  .regel-bearbeiten:hover{ color: var(--gold); border-color: var(--gold); }
+  /* Zweiter Klick bestätigt – Browser-Dialoge sind hier nicht verfügbar. */
+  .regel-loeschen.bestaetigen{ background: var(--conflict); color: #FFF3F1; font-weight: 500; }
+  .zuruecksetzen.bestaetigen{ color: var(--conflict); }
+
+  .neue-regel{
+    margin-top: 16px; padding: 14px; background: var(--panel);
+    border: 1px solid var(--panel-line); border-radius: 10px;
+  }
+  .form-titel{
+    margin: 0 0 12px; font-size: 11.5px; color: var(--gold);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .neue-regel .feld{ margin-bottom: 10px; }
+  .neue-regel label{ display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .neue-regel input[type="text"], .neue-regel input[type="date"], .neue-regel select{
+    width: 100%; padding: 9px 10px; background: var(--bg);
+    border: 1px solid var(--panel-line); border-radius: 6px;
+    color: var(--text); font-family: 'Inter', sans-serif; font-size: 13.5px;
+  }
+  .neue-regel input[type="color"]{
+    width: 44px; height: 32px; padding: 2px; background: var(--bg);
+    border: 1px solid var(--panel-line); border-radius: 6px;
+  }
+  .zeile-2{ display:flex; gap: 10px; align-items: flex-end; }
+  .zeile-2 .feld{ flex: 1; }
+
+  .checkbox-grid{ display:flex; flex-wrap:wrap; gap: 8px; }
+  .chk{
+    display:flex; align-items:center; gap: 6px;
+    background: var(--bg); border: 1px solid var(--panel-line); border-radius: 8px;
+    padding: 7px 10px; font-size: 12.5px; cursor: pointer; user-select: none;
+  }
+  .chk input{ accent-color: var(--gold); margin: 0; }
+  .chk:has(input:checked){ border-color: var(--gold); color: var(--gold); }
+  .btn-hinzufuegen{
+    margin-top: 4px; width: 100%; background: var(--gold); color: #1B1D21;
+    padding: 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
+  }
+  .btn-abbrechen{
+    margin-top: 8px; width: 100%; background: transparent; color: var(--text-muted);
+    border: 1px solid var(--panel-line);
+    padding: 9px; border-radius: 8px; font-size: 13px;
+  }
+
+  .zuruecksetzen{
+    margin-top: 14px; background: transparent; color: var(--text-muted);
+    font-size: 12px; text-decoration: underline; padding: 4px 0;
+  }
+
+  .form-fehler{
+    display: none; margin: 0 0 10px; padding: 9px 11px;
+    background: var(--conflict-bg); border: 1px solid var(--conflict);
+    border-radius: 6px; font-size: 12.5px; color: #E8C9C4;
+  }
+  .form-fehler.aktiv{ display: block; }
+
+  footer{ margin-top: 40px; font-size: 12px; color: var(--text-muted); text-align: center; }
+
+  /* Schmale Handys: Tagesspalte und Zeitspalte fressen sonst den Platz,
+     der für System + Rhythmus + Datum gebraucht wird. */
+  @media (max-width: 380px){
+    .tag{ flex-direction: column; gap: 6px; }
+    .tag-name{ flex: none; padding-top: 0; }
+    .slot{ flex-direction: column; align-items: stretch; gap: 3px; }
+    .slot .zeit{ flex: none; }
+    /* Systemname bekommt die volle Breite, Rhythmus + Datum rutschen
+       darunter – sonst bricht schon "Kill Team" mitten im Namen um. */
+    .eintrag{ flex-wrap: wrap; }
+    .eintrag .suffix{ flex-basis: 100%; }
+    .regel-zeile{ flex-wrap: wrap; }
+    .regel-aktionen{ width: 100%; justify-content: flex-end; }
+  }
+
+  /* Aushang fürs Vereinsbrett: heller Grund, keine Bedienelemente.
+     Es werden nur die Farb-Tokens umdefiniert, alles andere folgt. */
+  @media print{
+    :root{
+      color-scheme: light;
+      --bg: #FFFFFF;
+      --panel: #FFFFFF;
+      --panel-line: #B4B4B4;
+      --gold: #6B5420;
+      --text: #111111;
+      --text-muted: #555555;
+      --conflict: #A02A22;
+      --conflict-bg: #FFFFFF;
+      --moeglich: #7A5A1E;
+      --moeglich-bg: #FFFFFF;
+      --free-line: #CCCCCC;
+    }
+    .header-buttons, #verwaltung{ display: none !important; }
+    .wrap{ max-width: none; padding: 0; }
+    .tag{ break-inside: avoid; }
+    /* Diese drei Farben stehen fest im Stylesheet, nicht in den Tokens. */
+    .slot.konflikt .zeit, .slot.moeglich .zeit{ color: #555555; }
+    #warnungen{ color: #111111; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <p class="club">Privateer-Poza-Boyz e.V.</p>
+      <h1>Spieltage-Übersicht</h1>
+      <p class="sub">Feste Zeit-Slots einer normalen Woche, belegt nach Rhythmus – mit dem jeweils nächsten Termin.</p>
+    </div>
+    <div class="header-buttons">
+      <button class="btn-bearbeiten" id="btnExport">CSV exportieren</button>
+      <button class="btn-bearbeiten" id="btnBearbeiten" aria-expanded="false" aria-controls="verwaltung">Bearbeiten</button>
+    </div>
+  </header>
+
+  <div class="legende">
+    <span><span class="dot belegt"></span> Belegt (Farbe je System)</span>
+    <span><span class="dot frei"></span> Frei</span>
+    <span><span class="dot moeglich"></span> Möglicher Konflikt</span>
+    <span><span class="dot konflikt"></span> Konflikt</span>
+  </div>
+
+  <div id="warnungen" role="status" aria-live="polite"></div>
+
+  <div id="woche"></div>
+
+  <div id="verwaltung">
+    <p class="verwaltung-titel">Regeln verwalten</p>
+    <div id="regelListe"></div>
+
+    <div class="neue-regel" id="regelFormular">
+      <p class="form-titel" id="formTitel">Neue Regel</p>
+      <p class="form-fehler" id="formFehler" role="alert"></p>
+      <div class="feld">
+        <label for="neuSystem">System</label>
+        <input type="text" id="neuSystem" placeholder="z. B. Kill Team">
+      </div>
+      <div class="feld">
+        <label id="lblSlots">Slots (Mehrfachauswahl möglich, z. B. für einen ganzen Tag)</label>
+        <!-- Inhalt wird aus TAGE erzeugt, siehe baueSlotAuswahl(). -->
+        <div class="checkbox-grid" id="neuSlots" role="group" aria-labelledby="lblSlots"></div>
+      </div>
+      <div class="feld">
+        <label id="lblRhythmus">Rhythmus</label>
+        <div class="checkbox-grid" id="neuRhythmusGroup" role="radiogroup" aria-labelledby="lblRhythmus">
+          <label class="chk"><input type="radio" name="rhythmus" value="jede_woche" checked>jede Woche</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="gerade_wochen">nur gerade Wochen</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="ungerade_wochen">nur ungerade Wochen</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="alle_4_wochen">alle 4 Wochen</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="alle_8_wochen">alle 8 Wochen</label>
+        </div>
+      </div>
+      <div class="feld" style="flex: 0 0 44px;">
+        <label for="neuFarbe">Farbe</label>
+        <input type="color" id="neuFarbe" value="#7C9885">
+      </div>
+      <div class="feld" id="feldStartDatum" style="display:none;">
+        <label for="neuStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
+        <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31">
+      </div>
+      <button class="btn-hinzufuegen" id="btnHinzufuegen">+ Regel hinzufügen</button>
+      <button class="btn-abbrechen" id="btnAbbrechen" style="display:none;">Bearbeiten abbrechen</button>
+    </div>
+
+    <button class="zuruecksetzen" id="btnZuruecksetzen">Auf Standard-Regeln zurücksetzen</button>
+  </div>
+
+  <footer>Ein-Wochen-Vorlage, gilt für jede Kalenderwoche gemäß Rhythmus der einzelnen Slots.<br>Änderungen werden aktuell nur in diesem Browser gespeichert (noch nicht geteilt).</footer>
+</div>
+
+<script>
+/* ============================================================
+   STANDARD-REGELN – Ausgangszustand, falls im Browser noch
+   nichts gespeichert ist. Über "Auf Standard-Regeln zurücksetzen"
+   kommt man wieder hierhin zurück.
+   ============================================================ */
+const STANDARD_REGELN = [
+  // startDatum ist ein Platzhalter – auf einen echten Termin dieser Runde
+  // anpassen. Ohne Startdatum steht in der Übersicht "Datum unbekannt".
+  { id: "std-old-world", system: "Warhammer: The Old World", farbe: "#C6A15B", slots: ["samstag_nachmittag"], rhythmus: "alle_4_wochen", startDatum: "2026-01-05" },
+  { id: "std-necromunda", system: "Necromunda", farbe: "#7C9885", slots: ["sonntag_nachmittag"], rhythmus: "ungerade_wochen" },
+  { id: "std-kill-team", system: "Kill Team", farbe: "#8E7CC3", slots: ["samstag_vormittag"], rhythmus: "jede_woche" },
+  { id: "std-frostgrave", system: "Frostgrave", farbe: "#5B8FA8", slots: ["samstag_vormittag"], rhythmus: "gerade_wochen" }
+];
+
+const SPEICHER_KEY = "ppb-playday-regeln";
+
+/* Weit oben, weil schon die Migration beim Laden damit rechnet. */
+const TAG_MS = 86400000;
+const WOCHE_MS = 7 * TAG_MS;
+
+/* Wird true, sobald ein Schreibversuch fehlgeschlagen ist (privater Modus,
+   Speicher voll). Führt zu einem Hinweis oben auf der Seite, damit
+   Änderungen nicht unbemerkt beim Neuladen verloren gehen. */
+let speicherFehler = false;
+
+function standardKopie(){
+  return JSON.parse(JSON.stringify(STANDARD_REGELN));
+}
+
+function istGueltigeRegel(regel){
+  return !!regel
+    && typeof regel === "object"
+    && typeof regel.system === "string"
+    && Array.isArray(regel.slots)
+    && Object.prototype.hasOwnProperty.call(SUFFIX, regel.rhythmus);
+}
+
+function neueId(){
+  return "r" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+/* Jede Regel braucht eine stabile ID: Löschen und Bearbeiten hängen daran,
+   nicht an der Position in der Liste. Ältere Speicherstände haben keine,
+   doppelte würden zwei Regeln gleichzeitig treffen – beides wird hier
+   bereinigt. */
+function mitIds(regeln){
+  const vergeben = new Set();
+  return regeln.map(regel => {
+    const vorhanden = typeof regel.id === "string" && regel.id && !vergeben.has(regel.id);
+    const id = vorhanden ? regel.id : neueId();
+    vergeben.add(id);
+    return Object.assign({}, regel, { id });
+  });
+}
+
+/* Frühere Stände verankern 4-/8-Wochen-Rhythmen an einer Start-Kalender-
+   woche. Die wird einmalig in ein absolutes Datum übersetzt: Montag der
+   betreffenden KW im laufenden Jahr. */
+function mitStartdatum(regel){
+  if (regel.startDatum || !regel.startKw) return regel;
+  const kw = Number(regel.startKw);
+  if (!Number.isInteger(kw) || kw < 1 || kw > 53) return regel;
+
+  const umgestellt = Object.assign({}, regel, {
+    startDatum: alsIsoDatum(montagVonKw(new Date().getFullYear(), kw))
+  });
+  delete umgestellt.startKw;
+  return umgestellt;
+}
+
+function ladeRegeln(){
+  let gespeichert;
+  try {
+    gespeichert = localStorage.getItem(SPEICHER_KEY);
+  } catch(e){
+    return standardKopie();
+  }
+  if (!gespeichert) return standardKopie();
+  try {
+    const daten = JSON.parse(gespeichert);
+    if (!Array.isArray(daten)) return standardKopie();
+
+    const regeln = mitIds(daten.filter(istGueltigeRegel).map(regel => mitStartdatum(regel)));
+
+    /* Ergänzte IDs und umgestellte Startdaten sofort festschreiben. Sonst
+       würde dieselbe alte Start-KW im nächsten Jahr in ein anderes Datum
+       übersetzt – und der Takt verschöbe sich doch wieder. */
+    if (JSON.stringify(regeln) !== gespeichert) speichereRegeln(regeln);
+
+    return regeln;
+  } catch(e){
+    return standardKopie();
+  }
+}
+
+function speichereRegeln(regeln){
+  try {
+    localStorage.setItem(SPEICHER_KEY, JSON.stringify(regeln));
+    speicherFehler = false;
+  } catch(e){
+    speicherFehler = true;
+  }
+}
+
+function sichereFarbe(farbe){
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(farbe)) ? farbe : "#7C9885";
+}
+
+const SUFFIX = {
+  jede_woche: "jede Woche",
+  gerade_wochen: "nur gerade Wochen",
+  ungerade_wochen: "nur ungerade Wochen",
+  alle_4_wochen: "alle 4 Wochen",
+  alle_8_wochen: "alle 8 Wochen"
+};
+
+/* Erst hier, weil die Validierung in ladeRegeln SUFFIX braucht. */
+let REGELN = ladeRegeln();
+
+/* ============================================================
+   SLOT-DEFINITION – die einzige Quelle für Tage, Slots, Zeiten und
+   Beschriftungen. Wochen-Ansicht, Checkbox-Auswahl im Formular,
+   Labels und CSV-Export werden daraus erzeugt; eine Zeitänderung
+   passiert also nur noch an dieser Stelle.
+   Die Slot-Schlüssel (typ) stehen so auch in gespeicherten Regeln
+   und dürfen nicht umbenannt werden.
+   ============================================================ */
+const TAGE = [
+  { name: "Mo", lang: "Montag", iso: 1, slots: [
+    { typ: "montag_abend", bezeichnung: "Abend", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "Di", lang: "Dienstag", iso: 2, slots: [
+    { typ: "dienstag_abend", bezeichnung: "Abend", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "Mi", lang: "Mittwoch", iso: 3, slots: [
+    { typ: "mittwoch_abend", bezeichnung: "Abend", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "Do", lang: "Donnerstag", iso: 4, slots: [
+    { typ: "donnerstag_abend", bezeichnung: "Abend", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "Fr", lang: "Freitag", iso: 5, slots: [
+    { typ: "freitag_abend", bezeichnung: "Abend", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "Sa", lang: "Samstag", iso: 6, slots: [
+    { typ: "samstag_vormittag", bezeichnung: "Vormittag", von: "09:30", bis: "15:30" },
+    { typ: "samstag_nachmittag", bezeichnung: "Nachmittag", von: "16:00", bis: "22:00" }
+  ]},
+  { name: "So", lang: "Sonntag", iso: 7, slots: [
+    { typ: "sonntag_vormittag", bezeichnung: "Vormittag", von: "09:30", bis: "15:30" },
+    { typ: "sonntag_nachmittag", bezeichnung: "Nachmittag", von: "16:00", bis: "22:00" }
+  ]}
+];
+
+const ALLE_SLOTS = [];
+const SLOT_NACH_TYP = new Map();
+const SLOTS_PRO_TAG = new Map();
+
+TAGE.forEach(tag => {
+  const angereichert = tag.slots.map(slot => ({
+    typ: slot.typ,
+    von: slot.von,
+    bis: slot.bis,
+    tag: tag,
+    zeit: slot.von + "–" + slot.bis,
+    label: tag.lang + " " + slot.bezeichnung,
+    kurz: tag.name + " " + slot.bezeichnung
+  }));
+  SLOTS_PRO_TAG.set(tag, angereichert);
+  angereichert.forEach(slot => {
+    ALLE_SLOTS.push(slot);
+    SLOT_NACH_TYP.set(slot.typ, slot);
+  });
+});
+
+function slotLabel(typ){
+  const slot = SLOT_NACH_TYP.get(typ);
+  return slot ? slot.label : typ;
+}
+
+function minutenSeitMitternacht(zeit){
+  const teile = zeit.split(":");
+  return parseInt(teile[0], 10) * 60 + parseInt(teile[1], 10);
+}
+
+function heuteUTC(){
+  const n = new Date();
+  return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
+function isoWochentag(ts){
+  const d = new Date(ts).getUTCDay(); // 0=So..6=Sa
+  return d === 0 ? 7 : d;
+}
+
+function isoWoche(ts){
+  const d = new Date(ts);
+  const kopie = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const tagNr = isoWochentag(kopie.getTime());
+  kopie.setUTCDate(kopie.getUTCDate() + 4 - tagNr);
+  const jahresstart = new Date(Date.UTC(kopie.getUTCFullYear(), 0, 1));
+  return Math.ceil((((kopie - jahresstart) / TAG_MS) + 1) / 7);
+}
+
+function montagVonKw(jahr, kw){
+  const jan4 = Date.UTC(jahr, 0, 4);
+  const jan4Tag = isoWochentag(jan4);
+  const woche1Montag = jan4 - (jan4Tag - 1) * TAG_MS;
+  return woche1Montag + (kw - 1) * WOCHE_MS;
+}
+
+function montagDerWoche(ts){
+  return ts - (isoWochentag(ts) - 1) * TAG_MS;
+}
+
+function alsIsoDatum(ts){
+  const d = new Date(ts);
+  return d.getUTCFullYear() + "-" +
+    String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getUTCDate()).padStart(2, "0");
+}
+
+const JAHR_MIN = 2000, JAHR_MAX = 2100;
+
+function ausIsoDatum(text){
+  const treffer = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(text || ""));
+  if (!treffer) return null;
+  const jahr = Number(treffer[1]), monat = Number(treffer[2]), tag = Number(treffer[3]);
+  if (jahr < JAHR_MIN || jahr > JAHR_MAX) return null;
+  const ts = Date.UTC(jahr, monat - 1, tag);
+  const d = new Date(ts);
+  // Fängt Werte wie 2026-02-31 ab, die Date.UTC stillschweigend umrechnet.
+  const echt = d.getUTCFullYear() === jahr && d.getUTCMonth() === monat - 1 && d.getUTCDate() === tag;
+  return echt ? ts : null;
+}
+
+/* Anker eines 4-/8-Wochen-Rhythmus: der Montag der Woche, in der die Runde
+   zum ersten Mal stattfindet. Ein absolutes Datum statt einer KW-Nummer –
+   damit läuft der Takt ohne Sprung über den Jahreswechsel.
+   null = kein (gültiges) Startdatum hinterlegt. */
+function ankerMontag(regel){
+  const ts = ausIsoDatum(regel.startDatum);
+  return ts === null ? null : montagDerWoche(ts);
+}
+
+/* Tag und Monat reichen im laufenden Jahr. Liegt der Termin im nächsten
+   Jahr – bei 8-Wochen-Rhythmen über den Jahreswechsel keine Seltenheit –
+   kommt die Jahreszahl dazu, sonst wäre "09.01." mehrdeutig. */
+function formatDatum(ts){
+  const d = new Date(ts);
+  const tagMonat = d.getUTCDate().toString().padStart(2, "0") + "." +
+    (d.getUTCMonth() + 1).toString().padStart(2, "0") + ".";
+  const diesesJahr = new Date(heuteUTC()).getUTCFullYear();
+  return d.getUTCFullYear() === diesesJahr ? tagMonat : tagMonat + d.getUTCFullYear();
+}
+
+function naechstesDatum(regel, slot){
+  const wochentagIso = slot.tag.iso;
+  const heute = heuteUTC();
+  const diffZuWochentag = (wochentagIso - isoWochentag(heute) + 7) % 7;
+  let kandidat = heute + diffZuWochentag * TAG_MS;
+
+  /* Liegt der Slot auf heute, ist aber schon vorbei, ist der nächste
+     Termin frühestens in der kommenden Woche. */
+  if (diffZuWochentag === 0){
+    const jetzt = new Date();
+    if (jetzt.getHours() * 60 + jetzt.getMinutes() >= minutenSeitMitternacht(slot.bis)){
+      kandidat += WOCHE_MS;
+    }
+  }
+
+  if (regel.rhythmus === "jede_woche") return kandidat;
+
+  if (regel.rhythmus === "gerade_wochen" || regel.rhythmus === "ungerade_wochen"){
+    const willGerade = regel.rhythmus === "gerade_wochen";
+    for (let i = 0; i < 2; i++){
+      if ((isoWoche(kandidat) % 2 === 0) === willGerade) return kandidat;
+      kandidat += WOCHE_MS;
+    }
+    return kandidat;
+  }
+
+  if (regel.rhythmus === "alle_4_wochen" || regel.rhythmus === "alle_8_wochen"){
+    const anker = ankerMontag(regel);
+    if (anker === null) return null;
+
+    const n = regel.rhythmus === "alle_4_wochen" ? 4 : 8;
+    const referenz = anker + (wochentagIso - 1) * TAG_MS;
+
+    // Liegt der erste Termin noch in der Zukunft, ist er die Antwort.
+    if (kandidat < referenz) kandidat = referenz;
+
+    const wochenSeitStart = Math.round((kandidat - referenz) / WOCHE_MS);
+    const rest = ((wochenSeitStart % n) + n) % n;
+    return rest === 0 ? kandidat : kandidat + (n - rest) * WOCHE_MS;
+  }
+
+  return null;
+}
+
+function formatDatumVoll(ts){
+  const d = new Date(ts);
+  return d.getUTCDate().toString().padStart(2, "0") + "." + (d.getUTCMonth() + 1).toString().padStart(2, "0") + "." + d.getUTCFullYear();
+}
+
+function csvZelle(text){
+  let t = String(text);
+
+  /* Tabellenprogramme werten einen führenden =, +, - oder @ als Formel aus.
+     Ein vorangestelltes Apostroph macht daraus wieder reinen Text – sonst
+     könnte ein Systemname wie =HYPERLINK(...) beim Öffnen ausgeführt werden. */
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+
+  if (/[;"\r\n]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+  return t;
+}
+
+function exportiereCSV(){
+  const zeilen = [["Tag", "Zeit", "System", "Rhythmus", "Naechster_Termin"]];
+
+  ALLE_SLOTS.forEach(slot => {
+    REGELN
+      .filter(regel => (regel.slots || []).includes(slot.typ))
+      .forEach(regel => {
+        const naechstesTs = naechstesDatum(regel, slot);
+        const datumText = naechstesTs !== null ? formatDatumVoll(naechstesTs) : "unbekannt (Startdatum fehlt)";
+        zeilen.push([slot.tag.name, slot.zeit, regel.system, SUFFIX[regel.rhythmus], datumText]);
+      });
+  });
+
+  const csv = zeilen.map(zeile => zeile.map(csvZelle).join(";")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "spieltage-uebersicht.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* Konflikte werden über einen konkreten Zeitraum geprüft, nicht mehr über
+   Perioden-Kongruenz. Grund: "gerade/ungerade Wochen" hängt an der
+   Kalenderwochen-Nummer, die sich jedes Jahr neu zählt (und bei 53-Wochen-
+   Jahren die Parität kippt), während 4-/8-Wochen-Rhythmen jetzt an einem
+   absoluten Datum hängen. Beide lassen sich nicht mit einer festen Phase
+   gegeneinander rechnen, wohl aber Woche für Woche vergleichen.
+   Zwei Jahre decken 26 volle 4-Wochen- bzw. 13 volle 8-Wochen-Zyklen ab. */
+const HORIZONT_WOCHEN = 104;
+
+/* Liefert eine Funktion (Montag einer Woche) -> true | false | null.
+   null heißt "nicht entscheidbar", weil das Startdatum fehlt. */
+function wochenTest(regel){
+  if (regel.rhythmus === "jede_woche") return () => true;
+  if (regel.rhythmus === "gerade_wochen") return montag => isoWoche(montag) % 2 === 0;
+  if (regel.rhythmus === "ungerade_wochen") return montag => isoWoche(montag) % 2 === 1;
+
+  const anker = ankerMontag(regel);
+  if (anker === null) return () => null;
+
+  const n = regel.rhythmus === "alle_4_wochen" ? 4 : 8;
+  return montag => ((Math.round((montag - anker) / WOCHE_MS) % n) + n) % n === 0;
+}
+
+function paarStatus(a, b){
+  // Eine Regel, die jede Woche läuft, trifft jede andere zwangsläufig –
+  // auch eine, deren Startdatum unbekannt ist.
+  if (a.rhythmus === "jede_woche" || b.rhythmus === "jede_woche") return "konflikt";
+
+  const testA = wochenTest(a), testB = wochenTest(b);
+  const start = montagDerWoche(heuteUTC());
+  let unsicher = false;
+
+  for (let i = 0; i < HORIZONT_WOCHEN; i++){
+    const montag = start + i * WOCHE_MS;
+    const trifftA = testA(montag), trifftB = testB(montag);
+    if (trifftA === true && trifftB === true) return "konflikt";
+    if (trifftA !== false && trifftB !== false) unsicher = true;
+  }
+
+  return unsicher ? "moeglich" : null;
+}
+
+/* Liefert den Gesamtstatus eines Slots und die betroffenen Paare. Die
+   Paare werden bei drei oder mehr Regeln im Slot ausgegeben – dort ist
+   sonst nicht erkennbar, welche zwei sich tatsächlich überschneiden. */
+function konfliktAnalyse(treffer){
+  const paare = [];
+  let status = null;
+
+  for (let i = 0; i < treffer.length; i++){
+    for (let j = i + 1; j < treffer.length; j++){
+      const einzel = paarStatus(treffer[i], treffer[j]);
+      if (!einzel) continue;
+      paare.push({ status: einzel, a: treffer[i], b: treffer[j] });
+      if (einzel === "konflikt") status = "konflikt";
+      else if (status !== "konflikt") status = "moeglich";
+    }
+  }
+
+  return { status, paare };
+}
+
+function konfliktText(analyse, anzahlRegeln){
+  const konflikt = analyse.status === "konflikt";
+  const kopf = konflikt ? "⚠ Konflikt" : "⚠ Möglicher Konflikt";
+
+  if (anzahlRegeln > 2){
+    const betroffene = analyse.paare
+      .filter(paar => paar.status === analyse.status)
+      .map(paar => paar.a.system + " + " + paar.b.system)
+      .join(", ");
+    return kopf + ": " + betroffene;
+  }
+
+  return konflikt
+    ? kopf + ": Belegungen überschneiden sich"
+    : kopf + " – abhängig vom fehlenden Startdatum";
+}
+
+function renderWoche(){
+  const warnungen = [];
+  const wocheEl = document.getElementById("woche");
+  wocheEl.textContent = "";
+
+  TAGE.forEach(tag => {
+    const slotDaten = SLOTS_PRO_TAG.get(tag).map(s => ({ ...s, treffer: [] }));
+
+    REGELN.forEach(regel => {
+      (regel.slots || []).forEach(slotTyp => {
+        const ziel = slotDaten.find(s => s.typ === slotTyp);
+        if (ziel) {
+          ziel.treffer.push(regel);
+        } else if (!SLOT_NACH_TYP.has(slotTyp)) {
+          const text = `"${regel.system}": unbekannter Slot-Typ "${slotTyp}".`;
+          if (!warnungen.includes(text)) warnungen.push(text);
+        }
+      });
+    });
+
+    const tagEl = document.createElement("div");
+    tagEl.className = "tag";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "tag-name";
+    nameEl.textContent = tag.name;
+    tagEl.appendChild(nameEl);
+
+    const slotsEl = document.createElement("div");
+    slotsEl.className = "slots";
+
+    slotDaten.forEach(slot => {
+      const analyse = konfliktAnalyse(slot.treffer);
+      const konfliktStatus = analyse.status;
+      const slotEl = document.createElement("div");
+      slotEl.className = slot.treffer.length === 0
+        ? "slot frei"
+        : "slot" + (konfliktStatus ? " " + konfliktStatus : "");
+
+      const zeitEl = document.createElement("span");
+      zeitEl.className = "zeit";
+      zeitEl.textContent = slot.zeit;
+      slotEl.appendChild(zeitEl);
+
+      const inhaltEl = document.createElement("span");
+      inhaltEl.className = "inhalt";
+
+      if (slot.treffer.length === 0){
+        inhaltEl.textContent = "frei";
+      } else {
+        slot.treffer.forEach(t => {
+          const naechstesTs = naechstesDatum(t, slot);
+          const datumText = naechstesTs !== null
+            ? ", nächster Termin " + formatDatum(naechstesTs)
+            : ", Datum unbekannt (Startdatum fehlt)";
+
+          const eintragEl = document.createElement("span");
+          eintragEl.className = "eintrag";
+
+          const chipEl = document.createElement("span");
+          chipEl.className = "system-chip";
+          chipEl.style.background = sichereFarbe(t.farbe);
+          eintragEl.appendChild(chipEl);
+
+          eintragEl.appendChild(document.createTextNode(t.system + " "));
+
+          const suffixEl = document.createElement("span");
+          suffixEl.className = "suffix";
+          suffixEl.textContent = "· " + SUFFIX[t.rhythmus] + datumText;
+          eintragEl.appendChild(suffixEl);
+
+          inhaltEl.appendChild(eintragEl);
+        });
+
+        if (konfliktStatus){
+          const hinweisEl = document.createElement("div");
+          hinweisEl.className = "hinweis";
+          hinweisEl.textContent = konfliktText(analyse, slot.treffer.length);
+          inhaltEl.appendChild(hinweisEl);
+        }
+      }
+
+      slotEl.appendChild(inhaltEl);
+      slotsEl.appendChild(slotEl);
+    });
+
+    tagEl.appendChild(slotsEl);
+    wocheEl.appendChild(tagEl);
+  });
+
+  if (speicherFehler){
+    warnungen.push("Änderungen lassen sich in diesem Browser nicht speichern (z. B. privater Modus) – sie gelten nur bis zum Neuladen.");
+  }
+
+  const warnBox = document.getElementById("warnungen");
+  warnBox.textContent = "";
+  if (warnungen.length){
+    warnBox.classList.add("aktiv");
+
+    const titelEl = document.createElement("strong");
+    titelEl.textContent = "Bitte prüfen";
+    warnBox.appendChild(titelEl);
+
+    const listeEl = document.createElement("ul");
+    warnungen.forEach(w => {
+      const li = document.createElement("li");
+      li.textContent = w;
+      listeEl.appendChild(li);
+    });
+    warnBox.appendChild(listeEl);
+  } else {
+    warnBox.classList.remove("aktiv");
+  }
+}
+
+/* ============================================================
+   BESTÄTIGUNGEN – die Seite läuft in einem Sandbox-iframe, in dem
+   confirm() und alert() ignoriert werden (der Aufruf liefert
+   kommentarlos false). Kritische Aktionen brauchen deshalb einen
+   zweiten Klick auf denselben Knopf, der nach kurzer Zeit verfällt.
+   ============================================================ */
+const BESTAETIGUNG_MS = 5000;
+
+let loeschKandidat = null;
+let loeschTimer = null;
+
+function setzeLoeschKandidat(id){
+  loeschKandidat = id;
+  clearTimeout(loeschTimer);
+  if (id !== null){
+    loeschTimer = setTimeout(() => {
+      loeschKandidat = null;
+      renderVerwaltung();
+    }, BESTAETIGUNG_MS);
+  }
+}
+
+function renderVerwaltung(){
+  const liste = document.getElementById("regelListe");
+  liste.textContent = "";
+
+  if (REGELN.length === 0){
+    const leerEl = document.createElement("p");
+    leerEl.style.color = "var(--text-muted)";
+    leerEl.style.fontSize = "13px";
+    leerEl.textContent = "Noch keine Regeln eingetragen.";
+    liste.appendChild(leerEl);
+    return;
+  }
+
+  REGELN.forEach(regel => {
+    const zeile = document.createElement("div");
+    zeile.className = "regel-zeile" + (regel.id === bearbeiteId ? " wird-bearbeitet" : "");
+
+    const chipEl = document.createElement("span");
+    chipEl.className = "system-chip";
+    chipEl.style.background = sichereFarbe(regel.farbe);
+    zeile.appendChild(chipEl);
+
+    const infoEl = document.createElement("div");
+    infoEl.className = "info";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "name";
+    nameEl.textContent = regel.system;
+    infoEl.appendChild(nameEl);
+
+    const detailsEl = document.createElement("div");
+    detailsEl.className = "details";
+    const slotText = (regel.slots || []).map(slotLabel).join(" + ");
+    detailsEl.textContent = slotText + " · " + SUFFIX[regel.rhythmus] +
+      (ausIsoDatum(regel.startDatum) !== null
+        ? " (ab " + formatDatumVoll(ausIsoDatum(regel.startDatum)) + ")"
+        : "");
+    infoEl.appendChild(detailsEl);
+
+    zeile.appendChild(infoEl);
+
+    const aktionenEl = document.createElement("div");
+    aktionenEl.className = "regel-aktionen";
+
+    const bearbeitenEl = document.createElement("button");
+    bearbeitenEl.className = "regel-bearbeiten";
+    bearbeitenEl.textContent = "Bearbeiten";
+    bearbeitenEl.setAttribute("aria-label", "Regel " + regel.system + " bearbeiten");
+    bearbeitenEl.addEventListener("click", () => starteBearbeiten(regel));
+    aktionenEl.appendChild(bearbeitenEl);
+
+    const wartetAufBestaetigung = regel.id === loeschKandidat;
+
+    const loeschenEl = document.createElement("button");
+    loeschenEl.className = "regel-loeschen" + (wartetAufBestaetigung ? " bestaetigen" : "");
+    loeschenEl.textContent = wartetAufBestaetigung ? "Wirklich löschen?" : "Löschen";
+    loeschenEl.setAttribute("aria-label", wartetAufBestaetigung
+      ? "Löschen von " + regel.system + " bestätigen"
+      : "Regel " + regel.system + " löschen");
+
+    loeschenEl.addEventListener("click", () => {
+      // Erster Klick fragt nach, zweiter löscht.
+      if (!wartetAufBestaetigung){
+        setzeLoeschKandidat(regel.id);
+        renderVerwaltung();
+        return;
+      }
+
+      setzeLoeschKandidat(null);
+      REGELN = REGELN.filter(andere => andere.id !== regel.id);
+      // Wird gerade genau diese Regel bearbeitet, muss das Formular zurück.
+      if (bearbeiteId === regel.id) formularZuruecksetzen();
+
+      speichereRegeln(REGELN);
+      renderWoche();
+      renderVerwaltung();
+    });
+    aktionenEl.appendChild(loeschenEl);
+
+    zeile.appendChild(aktionenEl);
+    liste.appendChild(zeile);
+  });
+}
+
+/* Die Checkbox-Kacheln kommen aus derselben Slot-Definition wie die
+   Wochen-Ansicht – ein neuer Slot muss also nur oben ergänzt werden. */
+function baueSlotAuswahl(){
+  const container = document.getElementById("neuSlots");
+  container.textContent = "";
+
+  ALLE_SLOTS.forEach(slot => {
+    const kachel = document.createElement("label");
+    kachel.className = "chk";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = slot.typ;
+    box.id = "slot-" + slot.typ;
+
+    kachel.appendChild(box);
+    kachel.appendChild(document.createTextNode(slot.kurz));
+    container.appendChild(kachel);
+  });
+}
+
+function zeigeFormFehler(text){
+  const el = document.getElementById("formFehler");
+  el.textContent = text || "";
+  el.classList.toggle("aktiv", !!text);
+}
+
+/* ============================================================
+   FORMULAR – legt entweder eine neue Regel an oder überschreibt
+   eine bestehende. bearbeiteId entscheidet, welches von beidem.
+   ============================================================ */
+let bearbeiteId = null;
+
+function aktualisiereStartDatumFeld(){
+  const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
+  const zeigen = !!gewaehlt &&
+    (gewaehlt.value === "alle_4_wochen" || gewaehlt.value === "alle_8_wochen");
+  document.getElementById("feldStartDatum").style.display = zeigen ? "block" : "none";
+}
+
+/* Das Farbfeld akzeptiert nur #rrggbb – Kurzform entsprechend aufziehen,
+   damit eine gespeicherte Farbe beim Bearbeiten nicht verloren geht. */
+function farbeFuerEingabe(farbe){
+  const sicher = sichereFarbe(farbe);
+  if (/^#[0-9a-fA-F]{3}$/.test(sicher)){
+    return "#" + sicher.slice(1).split("").map(zeichen => zeichen + zeichen).join("");
+  }
+  return sicher;
+}
+
+function setzeFormularModus(){
+  const bearbeitet = bearbeiteId !== null;
+  document.getElementById("formTitel").textContent = bearbeitet ? "Regel bearbeiten" : "Neue Regel";
+  document.getElementById("btnHinzufuegen").textContent = bearbeitet ? "Änderungen speichern" : "+ Regel hinzufügen";
+  document.getElementById("btnAbbrechen").style.display = bearbeitet ? "block" : "none";
+}
+
+function formularZuruecksetzen(){
+  bearbeiteId = null;
+  gewarnterName = null;
+  document.getElementById("neuSystem").value = "";
+  document.getElementById("neuStartDatum").value = "";
+  document.getElementById("neuFarbe").value = "#7C9885";
+  document.querySelectorAll('#neuSlots input').forEach(cb => { cb.checked = false; });
+
+  const standard = document.querySelector('#neuRhythmusGroup input[value="jede_woche"]');
+  if (standard) standard.checked = true;
+
+  aktualisiereStartDatumFeld();
+  zeigeFormFehler("");
+  setzeFormularModus();
+}
+
+function starteBearbeiten(regel){
+  bearbeiteId = regel.id;
+
+  document.getElementById("neuSystem").value = regel.system;
+  document.getElementById("neuFarbe").value = farbeFuerEingabe(regel.farbe);
+  document.getElementById("neuStartDatum").value =
+    ausIsoDatum(regel.startDatum) !== null ? regel.startDatum : "";
+
+  document.querySelectorAll('#neuSlots input').forEach(cb => {
+    cb.checked = (regel.slots || []).includes(cb.value);
+  });
+
+  const radio = document.querySelector('#neuRhythmusGroup input[value="' + regel.rhythmus + '"]');
+  if (radio) radio.checked = true;
+
+  aktualisiereStartDatumFeld();
+  zeigeFormFehler("");
+  setzeFormularModus();
+  renderVerwaltung();
+  document.getElementById("regelFormular").scrollIntoView({ block: "nearest" });
+}
+
+/* Liest das Formular aus und gibt die Regel ohne ID zurück.
+   null bedeutet: Eingabe unvollständig, Fehler steht schon im Formular. */
+function formularLesen(){
+  const systemFeld = document.getElementById("neuSystem");
+  const startDatumFeld = document.getElementById("neuStartDatum");
+
+  const system = systemFeld.value.trim();
+  const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
+  const rhythmusInput = document.querySelector('#neuRhythmusGroup input:checked');
+  const rhythmus = rhythmusInput ? rhythmusInput.value : "jede_woche";
+  const farbe = document.getElementById("neuFarbe").value;
+  const startDatumRoh = startDatumFeld.value.trim();
+
+  if (!system){
+    zeigeFormFehler("Bitte einen System-Namen eintragen.");
+    systemFeld.focus();
+    return null;
+  }
+  if (slots.length === 0){
+    zeigeFormFehler("Bitte mindestens einen Slot auswählen.");
+    return null;
+  }
+
+  const regel = { system, slots, rhythmus, farbe };
+
+  if ((rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen") && startDatumRoh){
+    if (ausIsoDatum(startDatumRoh) === null){
+      zeigeFormFehler("Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
+      startDatumFeld.focus();
+      return null;
+    }
+    regel.startDatum = startDatumRoh;
+  }
+
+  return regel;
+}
+
+/* Derselbe Systemname darf mehrfach vorkommen – etwa dieselbe Runde an
+   zwei Tagen. Deshalb nur einmal warnen und beim nächsten Klick anlegen,
+   statt zu blockieren. */
+let gewarnterName = null;
+
+function doppelterNameBestaetigt(system, eigeneId){
+  const vergleich = system.trim().toLowerCase();
+  const schonDa = REGELN.some(regel =>
+    regel.id !== eigeneId && regel.system.trim().toLowerCase() === vergleich);
+
+  if (!schonDa || gewarnterName === vergleich){
+    gewarnterName = null;
+    return true;
+  }
+
+  gewarnterName = vergleich;
+  zeigeFormFehler("Für \"" + system + "\" gibt es bereits eine Regel. " +
+    "Noch einmal klicken, um sie trotzdem anzulegen.");
+  return false;
+}
+
+document.getElementById("btnExport").addEventListener("click", exportiereCSV);
+
+document.getElementById("btnBearbeiten").addEventListener("click", () => {
+  const verwaltung = document.getElementById("verwaltung");
+  const btn = document.getElementById("btnBearbeiten");
+  const aktiv = verwaltung.classList.toggle("aktiv");
+  btn.classList.toggle("aktiv", aktiv);
+  btn.textContent = aktiv ? "Fertig" : "Bearbeiten";
+  btn.setAttribute("aria-expanded", aktiv ? "true" : "false");
+  if (aktiv) renderVerwaltung();
+});
+
+document.getElementById("neuRhythmusGroup").addEventListener("change", aktualisiereStartDatumFeld);
+
+document.getElementById("btnAbbrechen").addEventListener("click", () => {
+  formularZuruecksetzen();
+  renderVerwaltung();
+});
+
+document.getElementById("btnHinzufuegen").addEventListener("click", () => {
+  const eingabe = formularLesen();
+  if (!eingabe) return;
+
+  if (!doppelterNameBestaetigt(eingabe.system, bearbeiteId)) return;
+
+  if (bearbeiteId !== null){
+    const index = REGELN.findIndex(regel => regel.id === bearbeiteId);
+    // Die Regel kann zwischenzeitlich gelöscht worden sein.
+    if (index === -1) REGELN.push(Object.assign({ id: neueId() }, eingabe));
+    else REGELN[index] = Object.assign({ id: bearbeiteId }, eingabe);
+  } else {
+    REGELN.push(Object.assign({ id: neueId() }, eingabe));
+  }
+
+  speichereRegeln(REGELN);
+  formularZuruecksetzen();
+  renderWoche();
+  renderVerwaltung();
+});
+
+let zuruecksetzenTimer = null;
+
+document.getElementById("btnZuruecksetzen").addEventListener("click", () => {
+  const btn = document.getElementById("btnZuruecksetzen");
+
+  // Erster Klick fragt nach, zweiter setzt zurück.
+  if (!btn.classList.contains("bestaetigen")){
+    btn.classList.add("bestaetigen");
+    btn.textContent = "Wirklich? Noch einmal klicken";
+    clearTimeout(zuruecksetzenTimer);
+    zuruecksetzenTimer = setTimeout(() => {
+      btn.classList.remove("bestaetigen");
+      btn.textContent = "Auf Standard-Regeln zurücksetzen";
+    }, BESTAETIGUNG_MS);
+    return;
+  }
+
+  clearTimeout(zuruecksetzenTimer);
+  btn.classList.remove("bestaetigen");
+  btn.textContent = "Auf Standard-Regeln zurücksetzen";
+
+  REGELN = standardKopie();
+  setzeLoeschKandidat(null);
+  speichereRegeln(REGELN);
+  formularZuruecksetzen();
+  renderWoche();
+  renderVerwaltung();
+});
+
+baueSlotAuswahl();
+renderWoche();
+</script>
+
+</body>
+</html>
