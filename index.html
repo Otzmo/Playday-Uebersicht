@@ -1504,11 +1504,15 @@ import { getDatabase, ref, onValue, update }
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
-/* Das gemeinsame Bearbeiter-Konto. Die Adresse ist nur die technische
-   Hülle für das eine Vereinspasswort – sie wird nie angezeigt, es geht
-   keine Post dorthin, und niemand muss sie kennen. Das Passwort steht
-   nicht hier, sondern wird bei Firebase geprüft. */
-const BEARBEITER_KONTO = "bearbeiten@privateer-poza-boyz.de";
+/* Das gemeinsame Bearbeiter-Konto: die technische Hülle für das eine
+   Vereinspasswort. Auf der Seite wird die Adresse nie angezeigt, es
+   geht keine Post dorthin, und niemand muss sie kennen – zum Ändern
+   reicht das Passwort. Das Passwort selbst steht nicht hier, es wird
+   von Firebase geprüft.
+   Soll die Adresse später gewechselt werden: in der Firebase-Konsole
+   unter Authentication einen Nutzer mit der neuen Adresse anlegen und
+   hier eintragen. */
+const BEARBEITER_KONTO = "philip.scherer85@gmail.com";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAaJnnjszYwNcCF9v7RM2aTSBAjOJZ2Izo",
