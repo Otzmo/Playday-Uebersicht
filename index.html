@@ -1241,6 +1241,12 @@ document.getElementById("btnExport").addEventListener("click", exportiereCSV);
    ============================================================ */
 let freigeschaltet = false;
 
+/* Nur wahr zwischen dem Klick auf "Entsperren" und der Antwort von
+   Firebase. Unterscheidet aktives Entsperren von einer Freischaltung,
+   die beim Seitenaufruf aus einer früheren Sitzung wiederhergestellt
+   wird – sonst startet die Seite mitten im Bearbeiten. */
+let entsperrenAngefordert = false;
+
 function zeigeBereich(welcher){
   const verwaltung = document.getElementById("verwaltung");
   const anmeldung = document.getElementById("anmeldung");
@@ -1279,7 +1285,15 @@ function ppbFreischaltung(offen){
 
   zeigeAnmeldeFehler("");
   document.getElementById("passwortFeld").value = "";
-  zeigeBereich("verwaltung");
+
+  /* Die Seite startet immer in der Anzeige. Nur wer gerade aktiv
+     entsperrt hat, landet direkt in der Verwaltung; eine aus einer
+     früheren Sitzung übernommene Freischaltung öffnet nichts von
+     selbst, sie erspart beim nächsten Klick nur das Passwort. */
+  if (entsperrenAngefordert){
+    entsperrenAngefordert = false;
+    zeigeBereich("verwaltung");
+  }
 }
 
 document.getElementById("btnBearbeiten").addEventListener("click", () => {
@@ -1305,10 +1319,14 @@ document.getElementById("btnEntsperren").addEventListener("click", () => {
   }
 
   zeigeAnmeldeFehler("");
+  entsperrenAngefordert = true;
   document.getElementById("btnEntsperren").disabled = true;
 
   window.ppbAnmelden(passwort)
-    .catch(meldung => zeigeAnmeldeFehler(meldung))
+    .catch(meldung => {
+      entsperrenAngefordert = false;
+      zeigeAnmeldeFehler(meldung);
+    })
     .finally(() => { document.getElementById("btnEntsperren").disabled = false; });
 });
 
