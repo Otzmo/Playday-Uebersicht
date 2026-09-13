@@ -178,9 +178,24 @@
     margin: 0 0 12px; font-size: 11.5px; color: var(--gold);
     text-transform: uppercase; letter-spacing: 0.07em;
   }
-  .neue-regel .feld{ margin-bottom: 10px; }
-  .neue-regel label{ display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
-  .neue-regel input[type="text"], .neue-regel input[type="date"], .neue-regel select{
+  .anmeldung{
+    display: none; margin-top: 36px; padding: 14px;
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px;
+  }
+  .anmeldung.aktiv{ display: block; }
+  .anmeldung .erklaerung{
+    margin: 0 0 12px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5;
+  }
+
+  .abmelden{
+    margin-top: 14px; background: transparent; color: var(--text-muted);
+    font-size: 12px; text-decoration: underline; padding: 4px 0;
+  }
+
+  .neue-regel .feld, .anmeldung .feld{ margin-bottom: 10px; }
+  .neue-regel label, .anmeldung label{ display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .neue-regel input[type="text"], .neue-regel input[type="date"], .neue-regel select,
+  .anmeldung input[type="password"]{
     width: 100%; padding: 9px 10px; background: var(--bg);
     border: 1px solid var(--panel-line); border-radius: 6px;
     color: var(--text); font-family: 'Inter', sans-serif; font-size: 13.5px;
@@ -299,6 +314,17 @@
 
   <div id="woche"></div>
 
+  <div class="anmeldung" id="anmeldung">
+    <p class="form-titel">Bearbeiten freischalten</p>
+    <p class="erklaerung">Ansehen kann die Übersicht jeder. Zum Ändern braucht es das Vereinspasswort.</p>
+    <p class="form-fehler" id="anmeldeFehler" role="alert"></p>
+    <div class="feld">
+      <label for="passwortFeld">Passwort</label>
+      <input type="password" id="passwortFeld" autocomplete="current-password">
+    </div>
+    <button class="btn-hinzufuegen" id="btnEntsperren">Entsperren</button>
+  </div>
+
   <div id="verwaltung">
     <p class="verwaltung-titel">Regeln verwalten</p>
     <div id="regelListe"></div>
@@ -338,6 +364,8 @@
     </div>
 
     <button class="zuruecksetzen" id="btnZuruecksetzen">Alle Regeln löschen</button>
+    <br>
+    <button class="abmelden" id="btnAbmelden">Bearbeiten wieder sperren</button>
   </div>
 
   <footer>
@@ -1205,14 +1233,91 @@ function doppelterNameBestaetigt(system, eigeneId){
 
 document.getElementById("btnExport").addEventListener("click", exportiereCSV);
 
-document.getElementById("btnBearbeiten").addEventListener("click", () => {
+/* ============================================================
+   FREISCHALTUNG
+   Ansehen darf jeder. Zum Ändern muss das Vereinspasswort einmal
+   eingegeben werden; Firebase prüft es und merkt sich die
+   Freischaltung im Browser, bis wieder gesperrt wird.
+   ============================================================ */
+let freigeschaltet = false;
+
+function zeigeBereich(welcher){
   const verwaltung = document.getElementById("verwaltung");
+  const anmeldung = document.getElementById("anmeldung");
   const btn = document.getElementById("btnBearbeiten");
-  const aktiv = verwaltung.classList.toggle("aktiv");
-  btn.classList.toggle("aktiv", aktiv);
-  btn.textContent = aktiv ? "Fertig" : "Bearbeiten";
-  btn.setAttribute("aria-expanded", aktiv ? "true" : "false");
-  if (aktiv) renderVerwaltung();
+
+  verwaltung.classList.toggle("aktiv", welcher === "verwaltung");
+  anmeldung.classList.toggle("aktiv", welcher === "anmeldung");
+
+  const offen = welcher !== "zu";
+  btn.classList.toggle("aktiv", offen);
+  btn.textContent = offen ? "Fertig" : "Bearbeiten";
+  btn.setAttribute("aria-expanded", offen ? "true" : "false");
+
+  if (welcher === "verwaltung") renderVerwaltung();
+  if (welcher === "anmeldung") document.getElementById("passwortFeld").focus();
+}
+
+function zeigeAnmeldeFehler(text){
+  const el = document.getElementById("anmeldeFehler");
+  el.textContent = text || "";
+  el.classList.toggle("aktiv", !!text);
+}
+
+/* Wird vom Firebase-Modul gerufen, sobald sich der Anmeldezustand
+   ändert – auch beim Laden, wenn die Freischaltung noch gilt. */
+function ppbFreischaltung(offen){
+  freigeschaltet = offen;
+
+  if (!offen){
+    // Bearbeitung beenden, damit nichts halb Offenes stehen bleibt.
+    formularZuruecksetzen();
+    setzeLoeschKandidat(null);
+    zeigeBereich("zu");
+    return;
+  }
+
+  zeigeAnmeldeFehler("");
+  document.getElementById("passwortFeld").value = "";
+  zeigeBereich("verwaltung");
+}
+
+document.getElementById("btnBearbeiten").addEventListener("click", () => {
+  const offen = document.getElementById("verwaltung").classList.contains("aktiv") ||
+                document.getElementById("anmeldung").classList.contains("aktiv");
+
+  if (offen) zeigeBereich("zu");
+  else zeigeBereich(freigeschaltet ? "verwaltung" : "anmeldung");
+});
+
+document.getElementById("btnEntsperren").addEventListener("click", () => {
+  const feld = document.getElementById("passwortFeld");
+  const passwort = feld.value;
+
+  if (!passwort){
+    zeigeAnmeldeFehler("Bitte das Passwort eingeben.");
+    feld.focus();
+    return;
+  }
+  if (typeof window.ppbAnmelden !== "function"){
+    zeigeAnmeldeFehler("Keine Verbindung zur Datenbank – Freischalten ist gerade nicht möglich.");
+    return;
+  }
+
+  zeigeAnmeldeFehler("");
+  document.getElementById("btnEntsperren").disabled = true;
+
+  window.ppbAnmelden(passwort)
+    .catch(meldung => zeigeAnmeldeFehler(meldung))
+    .finally(() => { document.getElementById("btnEntsperren").disabled = false; });
+});
+
+document.getElementById("passwortFeld").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("btnEntsperren").click();
+});
+
+document.getElementById("btnAbmelden").addEventListener("click", () => {
+  if (typeof window.ppbAbmelden === "function") window.ppbAbmelden();
 });
 
 document.getElementById("neuRhythmusGroup").addEventListener("change", aktualisiereStartDatumFeld);
@@ -1396,6 +1501,14 @@ renderWoche();
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getDatabase, ref, onValue, update }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+/* Das gemeinsame Bearbeiter-Konto. Die Adresse ist nur die technische
+   Hülle für das eine Vereinspasswort – sie wird nie angezeigt, es geht
+   keine Post dorthin, und niemand muss sie kennen. Das Passwort steht
+   nicht hier, sondern wird bei Firebase geprüft. */
+const BEARBEITER_KONTO = "bearbeiten@privateer-poza-boyz.de";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAaJnnjszYwNcCF9v7RM2aTSBAjOJZ2Izo",
@@ -1407,8 +1520,41 @@ const firebaseConfig = {
   appId: "1:760964482295:web:3b13fd71326f4d249e7ff2"
 };
 
+function anmeldeFehlerText(fehler){
+  const code = (fehler && fehler.code) || "";
+
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password" ||
+      code === "auth/invalid-email" || code === "auth/user-not-found"){
+    return "Passwort stimmt nicht.";
+  }
+  if (code === "auth/too-many-requests"){
+    return "Zu viele Fehlversuche. Bitte etwas warten und noch einmal probieren.";
+  }
+  if (code === "auth/network-request-failed"){
+    return "Keine Verbindung zum Anmeldedienst.";
+  }
+  if (code === "auth/unauthorized-domain"){
+    return "Diese Adresse ist bei Firebase nicht freigegeben: Authentication → Einstellungen → Autorisierte Domains.";
+  }
+  if (code === "auth/operation-not-allowed"){
+    return "Anmeldung per E-Mail/Passwort ist im Firebase-Projekt noch nicht aktiviert.";
+  }
+  return "Freischalten fehlgeschlagen (" + (code || (fehler && fehler.message) || "unbekannt") + ").";
+}
+
 try {
-  const datenbank = getDatabase(initializeApp(firebaseConfig));
+  const anwendung = initializeApp(firebaseConfig);
+  const datenbank = getDatabase(anwendung);
+  const anmeldung = getAuth(anwendung);
+
+  window.ppbAnmelden = (passwort) =>
+    signInWithEmailAndPassword(anmeldung, BEARBEITER_KONTO, passwort)
+      .then(() => undefined)
+      .catch(fehler => Promise.reject(anmeldeFehlerText(fehler)));
+
+  window.ppbAbmelden = () => signOut(anmeldung);
+
+  onAuthStateChanged(anmeldung, nutzer => window.ppbFreischaltung(!!nutzer));
 
   window.ppbSchreibe = (aenderungen) => {
     update(ref(datenbank), aenderungen).catch(fehler => window.ppbFehler(fehler.message));
