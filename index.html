@@ -696,17 +696,6 @@ function ankerMontag(regel){
   return ts === null ? null : montagDerWoche(ts);
 }
 
-/* Tag und Monat reichen im laufenden Jahr. Liegt der Termin im nächsten
-   Jahr – bei 8-Wochen-Rhythmen über den Jahreswechsel keine Seltenheit –
-   kommt die Jahreszahl dazu, sonst wäre "09.01." mehrdeutig. */
-function formatDatum(ts){
-  const d = new Date(ts);
-  const tagMonat = d.getUTCDate().toString().padStart(2, "0") + "." +
-    (d.getUTCMonth() + 1).toString().padStart(2, "0") + ".";
-  const diesesJahr = new Date(heuteUTC()).getUTCFullYear();
-  return d.getUTCFullYear() === diesesJahr ? tagMonat : tagMonat + d.getUTCFullYear();
-}
-
 /* Die ausgefallenen Termine einer Regel als Menge von ISO-Datumswerten. */
 function ausfallMenge(regel){
   return new Set(Array.isArray(regel.ausfaelle) ? regel.ausfaelle : []);
@@ -795,7 +784,7 @@ function naechstesDatum(regel, slot){
   return ts !== null && ausfaelle.has(alsIsoDatum(ts)) ? null : ts;
 }
 
-function formatDatumVoll(ts){
+function formatDatum(ts){
   const d = new Date(ts);
   return d.getUTCDate().toString().padStart(2, "0") + "." + (d.getUTCMonth() + 1).toString().padStart(2, "0") + "." + d.getUTCFullYear();
 }
@@ -823,7 +812,7 @@ function exportiereCSV(){
         // Abgelaufene Einzeltermine stehen nicht mehr an.
         if (regel.rhythmus === "einmalig" && naechstesTs === null) return;
 
-        const datumText = naechstesTs !== null ? formatDatumVoll(naechstesTs) : "unbekannt (Startdatum fehlt)";
+        const datumText = naechstesTs !== null ? formatDatum(naechstesTs) : "unbekannt (Startdatum fehlt)";
         zeilen.push([slot.tag.name, slot.zeit, regel.system, SUFFIX[regel.rhythmus], datumText]);
       });
   });
@@ -1121,11 +1110,11 @@ function regelBeschreibung(regel){
   if (regel.rhythmus === "einmalig"){
     if (datum === null) return slotText + " · einmaliger Termin, Datum fehlt";
     const vorbei = datum < heuteUTC() ? " – vorbei" : "";
-    return slotText + " · einmalig am " + formatDatumVoll(datum) + vorbei;
+    return slotText + " · einmalig am " + formatDatum(datum) + vorbei;
   }
 
   const grund = slotText + " · " + SUFFIX[regel.rhythmus] +
-    (datum !== null ? " (ab " + formatDatumVoll(datum) + ")" : "");
+    (datum !== null ? " (ab " + formatDatum(datum) + ")" : "");
 
   const kuenftige = Array.from(ausfallMenge(regel))
     .map(ausIsoDatum)
@@ -1462,7 +1451,7 @@ function formularLesen(){
 
     if (unpassend.length > 0){
       const tagName = TAGE.find(tag => tag.iso === wochentag);
-      zeigeFormFehler("Der " + formatDatumVoll(ts) + " ist ein " + (tagName ? tagName.lang : "anderer Tag") +
+      zeigeFormFehler("Der " + formatDatum(ts) + " ist ein " + (tagName ? tagName.lang : "anderer Tag") +
         ". Nicht dazu passend: " + unpassend.map(slotLabel).join(", ") + ".");
       return null;
     }
@@ -1498,7 +1487,7 @@ function vergangenesDatumBestaetigt(ts){
   }
 
   gewarntesDatum = ts;
-  zeigeFormFehler("Der " + formatDatumVoll(ts) + " liegt in der Vergangenheit – der Termin " +
+  zeigeFormFehler("Der " + formatDatum(ts) + " liegt in der Vergangenheit – der Termin " +
     "erscheint dann nicht in der Wochenansicht, sondern nur in dieser Liste. " +
     "Noch einmal klicken, um ihn trotzdem anzulegen.");
   return false;
