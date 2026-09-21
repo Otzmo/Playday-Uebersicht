@@ -356,7 +356,7 @@
         <label for="neuFarbe">Farbe</label>
         <input type="color" id="neuFarbe" value="#7C9885">
       </div>
-      <div class="feld" id="feldStartDatum" style="display:none;">
+      <div class="feld" id="feldStartDatum">
         <label for="neuStartDatum" id="labelStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
         <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31">
       </div>
@@ -728,6 +728,15 @@ function suchbeginn(slot){
    ohne Rücksicht auf Ausfälle. */
 function terminAb(regel, slot, ab){
   const wochentagIso = slot.tag.iso;
+
+  /* Vor dem ersten Termin läuft die Runde noch nicht – gilt für jeden
+     Rhythmus. Bei "einmalig" ist das Datum der Termin selbst und wird
+     weiter unten behandelt. */
+  if (regel.rhythmus !== "einmalig"){
+    const start = ausIsoDatum(regel.startDatum);
+    if (start !== null && ab < start) ab = start;
+  }
+
   let kandidat = ab + ((wochentagIso - isoWochentag(ab) + 7) % 7) * TAG_MS;
 
   /* Einzeltermin: null, sobald er vorbei ist – daran erkennt die
@@ -867,12 +876,17 @@ function grundTakt(regel){
 function wochenTest(regel, wochentagIso){
   const takt = grundTakt(regel);
   const ausfaelle = ausfallMenge(regel);
-  if (ausfaelle.size === 0) return takt;
+  const start = regel.rhythmus === "einmalig" ? null : ausIsoDatum(regel.startDatum);
+
+  if (ausfaelle.size === 0 && start === null) return takt;
 
   return montag => {
+    const datum = montag + (wochentagIso - 1) * TAG_MS;
+    if (start !== null && datum < start) return false;
+
     const laeuft = takt(montag);
     if (laeuft === false) return false;
-    return ausfaelle.has(alsIsoDatum(montag + (wochentagIso - 1) * TAG_MS)) ? false : laeuft;
+    return ausfaelle.has(alsIsoDatum(datum)) ? false : laeuft;
   };
 }
 
@@ -1242,10 +1256,19 @@ function aktualisiereStartDatumFeld(){
   const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
   const rhythmus = gewaehlt ? gewaehlt.value : "jede_woche";
 
-  document.getElementById("feldStartDatum").style.display = brauchtDatum(rhythmus) ? "block" : "none";
-  document.getElementById("labelStartDatum").textContent = rhythmus === "einmalig"
-    ? "Datum des Termins – bestimmt zugleich den Wochentag"
-    : "Erster Termin (optional – ermöglicht exakte statt \"möglicher\" Konflikterkennung)";
+  // Das Feld gibt es bei jedem Rhythmus; nur seine Bedeutung wechselt.
+  document.getElementById("feldStartDatum").style.display = "block";
+
+  let text;
+  if (rhythmus === "einmalig"){
+    text = "Datum des Termins – bestimmt zugleich den Wochentag";
+  } else if (rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen"){
+    text = "Erster Termin (optional – legt fest, ab wann die Runde läuft, " +
+      "und macht aus einem \"möglichen\" Konflikt einen eindeutigen)";
+  } else {
+    text = "Erster Termin (optional – ab wann die Runde läuft)";
+  }
+  document.getElementById("labelStartDatum").textContent = text;
 }
 
 /* Das Farbfeld akzeptiert nur #rrggbb – Kurzform entsprechend aufziehen,
@@ -1450,7 +1473,8 @@ function formularLesen(){
     return regel;
   }
 
-  if ((rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen") && startDatumRoh){
+  // Bei allen übrigen Rhythmen ist das Datum optional: ab wann die Runde läuft.
+  if (startDatumRoh){
     if (ausIsoDatum(startDatumRoh) === null){
       zeigeFormFehler("Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
       startDatumFeld.focus();
@@ -1783,6 +1807,7 @@ setTimeout(() => {
 }, 8000);
 
 baueSlotAuswahl();
+aktualisiereStartDatumFeld();
 renderWoche();
 </script>
 

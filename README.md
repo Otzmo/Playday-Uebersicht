@@ -100,9 +100,19 @@ In der Wochenansicht steht bei einer Regel, deren nächster Takttermin
 ausfällt, "26.09. fällt aus, nächster Termin 03.10." – die Absage ist für den
 Leser die wichtigere Information als das Datum danach.
 
-### Datum bei den langen Takten
+### Startdatum
 
-`startDatum` gilt außerdem für die 4- und 8-Wochen-Rhythmen und benennt einen echten
+`startDatum` ist bei jedem Rhythmus möglich und legt fest, **ab wann** die Runde
+läuft: Vor diesem Tag gibt es keinen Termin, und die Konfliktprüfung zählt die
+Wochen davor nicht mit. Damit lässt sich "ab Oktober jeden Samstag" abbilden.
+
+Ohne Startdatum läuft eine Runde von Anfang an – für die wöchentlichen und die
+geraden/ungeraden Rhythmen ist das Feld also rein optional.
+
+### Zusätzliche Rolle bei den langen Takten
+
+Bei den 4- und 8-Wochen-Rhythmen ist `startDatum` nicht nur Beginn, sondern auch
+Taktgeber, und benennt einen echten
 Termin der Runde. Der Takt wird von dort aus absolut weitergerechnet, nicht über
 Kalenderwochen-Nummern – sonst würde er am Jahreswechsel springen, weil ein Jahr
 auch 53 Wochen haben kann. Fehlt das Startdatum, lässt sich weder der nächste
