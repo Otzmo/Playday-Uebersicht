@@ -349,6 +349,7 @@
           <label class="chk"><input type="radio" name="rhythmus" value="ungerade_wochen">nur ungerade Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_4_wochen">alle 4 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_8_wochen">alle 8 Wochen</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="einmalig">nur einmal</label>
         </div>
       </div>
       <div class="feld" style="flex: 0 0 44px;">
@@ -356,7 +357,7 @@
         <input type="color" id="neuFarbe" value="#7C9885">
       </div>
       <div class="feld" id="feldStartDatum" style="display:none;">
-        <label for="neuStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
+        <label for="neuStartDatum" id="labelStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
         <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31">
       </div>
       <button class="btn-hinzufuegen" id="btnHinzufuegen">+ Regel hinzufügen</button>
@@ -546,8 +547,15 @@ const SUFFIX = {
   gerade_wochen: "nur gerade Wochen",
   ungerade_wochen: "nur ungerade Wochen",
   alle_4_wochen: "alle 4 Wochen",
-  alle_8_wochen: "alle 8 Wochen"
+  alle_8_wochen: "alle 8 Wochen",
+  einmalig: "einmaliger Termin"
 };
+
+/* Rhythmen, die ohne Datum nicht auskommen. Bei "einmalig" ist das
+   Datum der Termin selbst, bei den langen Takten der Ankerpunkt. */
+function brauchtDatum(rhythmus){
+  return rhythmus === "einmalig" || rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen";
+}
 
 /* Erst hier, weil die Validierung in ladeRegeln SUFFIX braucht. */
 let REGELN = ladeRegeln();
@@ -707,6 +715,14 @@ function naechstesDatum(regel, slot){
     }
   }
 
+  /* Einzeltermin: null, sobald er vorbei ist – daran erkennt die
+     Wochenansicht, dass er nicht mehr angezeigt werden soll. */
+  if (regel.rhythmus === "einmalig"){
+    const termin = ausIsoDatum(regel.startDatum);
+    if (termin === null || isoWochentag(termin) !== wochentagIso) return null;
+    return termin >= kandidat ? termin : null;
+  }
+
   if (regel.rhythmus === "jede_woche") return kandidat;
 
   if (regel.rhythmus === "gerade_wochen" || regel.rhythmus === "ungerade_wochen"){
@@ -761,6 +777,9 @@ function exportiereCSV(){
       .filter(regel => (regel.slots || []).includes(slot.typ))
       .forEach(regel => {
         const naechstesTs = naechstesDatum(regel, slot);
+        // Abgelaufene Einzeltermine stehen nicht mehr an.
+        if (regel.rhythmus === "einmalig" && naechstesTs === null) return;
+
         const datumText = naechstesTs !== null ? formatDatumVoll(naechstesTs) : "unbekannt (Startdatum fehlt)";
         zeilen.push([slot.tag.name, slot.zeit, regel.system, SUFFIX[regel.rhythmus], datumText]);
       });
@@ -793,6 +812,13 @@ function wochenTest(regel){
   if (regel.rhythmus === "jede_woche") return () => true;
   if (regel.rhythmus === "gerade_wochen") return montag => isoWoche(montag) % 2 === 0;
   if (regel.rhythmus === "ungerade_wochen") return montag => isoWoche(montag) % 2 === 1;
+
+  if (regel.rhythmus === "einmalig"){
+    const termin = ausIsoDatum(regel.startDatum);
+    if (termin === null) return () => false;
+    const woche = montagDerWoche(termin);
+    return montag => montag === woche;
+  }
 
   const anker = ankerMontag(regel);
   if (anker === null) return () => null;
@@ -869,6 +895,8 @@ function renderWoche(){
       (regel.slots || []).forEach(slotTyp => {
         const ziel = slotDaten.find(s => s.typ === slotTyp);
         if (ziel) {
+          // Ein abgelaufener Einzeltermin gehört nicht mehr in die Wochenvorlage.
+          if (regel.rhythmus === "einmalig" && naechstesDatum(regel, ziel) === null) return;
           ziel.treffer.push(regel);
         } else if (!SLOT_NACH_TYP.has(slotTyp)) {
           const text = `"${regel.system}": unbekannter Slot-Typ "${slotTyp}".`;
@@ -925,7 +953,11 @@ function renderWoche(){
 
           const suffixEl = document.createElement("span");
           suffixEl.className = "suffix";
-          suffixEl.textContent = "· " + SUFFIX[t.rhythmus] + datumText;
+          /* Beim Einzeltermin wäre "einmaliger Termin, nächster Termin …"
+             doppelt – dort genügt das Datum. */
+          suffixEl.textContent = t.rhythmus === "einmalig"
+            ? "· einmalig am " + formatDatum(naechstesTs)
+            : "· " + SUFFIX[t.rhythmus] + datumText;
           eintragEl.appendChild(suffixEl);
 
           inhaltEl.appendChild(eintragEl);
@@ -994,6 +1026,21 @@ function setzeLoeschKandidat(id){
   }
 }
 
+/* Zeile unter dem Systemnamen in der Regel-Liste. */
+function regelBeschreibung(regel){
+  const slotText = (regel.slots || []).map(slotLabel).join(" + ");
+  const datum = ausIsoDatum(regel.startDatum);
+
+  if (regel.rhythmus === "einmalig"){
+    if (datum === null) return slotText + " · einmaliger Termin, Datum fehlt";
+    const vorbei = datum < heuteUTC() ? " – vorbei" : "";
+    return slotText + " · einmalig am " + formatDatumVoll(datum) + vorbei;
+  }
+
+  return slotText + " · " + SUFFIX[regel.rhythmus] +
+    (datum !== null ? " (ab " + formatDatumVoll(datum) + ")" : "");
+}
+
 function renderVerwaltung(){
   const liste = document.getElementById("regelListe");
   liste.textContent = "";
@@ -1026,11 +1073,7 @@ function renderVerwaltung(){
 
     const detailsEl = document.createElement("div");
     detailsEl.className = "details";
-    const slotText = (regel.slots || []).map(slotLabel).join(" + ");
-    detailsEl.textContent = slotText + " · " + SUFFIX[regel.rhythmus] +
-      (ausIsoDatum(regel.startDatum) !== null
-        ? " (ab " + formatDatumVoll(ausIsoDatum(regel.startDatum)) + ")"
-        : "");
+    detailsEl.textContent = regelBeschreibung(regel);
     infoEl.appendChild(detailsEl);
 
     zeile.appendChild(infoEl);
@@ -1113,9 +1156,12 @@ let bearbeiteId = null;
 
 function aktualisiereStartDatumFeld(){
   const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
-  const zeigen = !!gewaehlt &&
-    (gewaehlt.value === "alle_4_wochen" || gewaehlt.value === "alle_8_wochen");
-  document.getElementById("feldStartDatum").style.display = zeigen ? "block" : "none";
+  const rhythmus = gewaehlt ? gewaehlt.value : "jede_woche";
+
+  document.getElementById("feldStartDatum").style.display = brauchtDatum(rhythmus) ? "block" : "none";
+  document.getElementById("labelStartDatum").textContent = rhythmus === "einmalig"
+    ? "Datum des Termins – bestimmt zugleich den Wochentag"
+    : "Erster Termin (optional – ermöglicht exakte statt \"möglicher\" Konflikterkennung)";
 }
 
 /* Das Farbfeld akzeptiert nur #rrggbb – Kurzform entsprechend aufziehen,
@@ -1138,6 +1184,7 @@ function setzeFormularModus(){
 function formularZuruecksetzen(){
   bearbeiteId = null;
   gewarnterName = null;
+  gewarntesDatum = null;
   document.getElementById("neuSystem").value = "";
   document.getElementById("neuStartDatum").value = "";
   document.getElementById("neuFarbe").value = "#7C9885";
@@ -1198,6 +1245,35 @@ function formularLesen(){
 
   const regel = { system, slots, rhythmus, farbe };
 
+  if (rhythmus === "einmalig"){
+    const ts = ausIsoDatum(startDatumRoh);
+    if (ts === null){
+      zeigeFormFehler("Für einen einmaligen Termin bitte ein Datum angeben.");
+      startDatumFeld.focus();
+      return null;
+    }
+
+    /* Beim Einzeltermin gibt das Datum den Wochentag vor – ein Termin am
+       Samstag kann keinen Mittwoch-Slot belegen. */
+    const wochentag = isoWochentag(ts);
+    const unpassend = slots.filter(typ => {
+      const slot = SLOT_NACH_TYP.get(typ);
+      return slot && slot.tag.iso !== wochentag;
+    });
+
+    if (unpassend.length > 0){
+      const tagName = TAGE.find(tag => tag.iso === wochentag);
+      zeigeFormFehler("Der " + formatDatumVoll(ts) + " ist ein " + (tagName ? tagName.lang : "anderer Tag") +
+        ". Nicht dazu passend: " + unpassend.map(slotLabel).join(", ") + ".");
+      return null;
+    }
+
+    if (!vergangenesDatumBestaetigt(ts)) return null;
+
+    regel.startDatum = startDatumRoh;
+    return regel;
+  }
+
   if ((rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen") && startDatumRoh){
     if (ausIsoDatum(startDatumRoh) === null){
       zeigeFormFehler("Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
@@ -1208,6 +1284,24 @@ function formularLesen(){
   }
 
   return regel;
+}
+
+/* Ein Einzeltermin in der Vergangenheit erscheint nicht in der Wochen-
+   ansicht. Das ist gewollt, sieht bei einem Tippfehler im Jahr aber aus
+   wie ein Fehlschlag – deshalb einmal nachfragen. */
+let gewarntesDatum = null;
+
+function vergangenesDatumBestaetigt(ts){
+  if (ts >= heuteUTC() || gewarntesDatum === ts){
+    gewarntesDatum = null;
+    return true;
+  }
+
+  gewarntesDatum = ts;
+  zeigeFormFehler("Der " + formatDatumVoll(ts) + " liegt in der Vergangenheit – der Termin " +
+    "erscheint dann nicht in der Wochenansicht, sondern nur in dieser Liste. " +
+    "Noch einmal klicken, um ihn trotzdem anzulegen.");
+  return false;
 }
 
 /* Derselbe Systemname darf mehrfach vorkommen – etwa dieselbe Runde an

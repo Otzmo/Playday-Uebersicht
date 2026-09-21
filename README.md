@@ -54,9 +54,28 @@ Eine Regel belegt einen oder mehrere Slots:
 ```
 
 Mögliche Rhythmen: `jede_woche`, `gerade_wochen`, `ungerade_wochen`,
-`alle_4_wochen`, `alle_8_wochen`.
+`alle_4_wochen`, `alle_8_wochen`, `einmalig`.
 
-`startDatum` gilt nur für die 4- und 8-Wochen-Rhythmen und benennt einen echten
+### Einzeltermine
+
+`einmalig` ist ein einzelner Termin statt eines Takts – etwa ein Turnier an
+einem bestimmten Samstag. `startDatum` ist dann **Pflicht** und benennt den
+Termin selbst.
+
+Dabei gibt das Datum den Wochentag vor: Ein Termin am Samstag kann keinen
+Mittwoch-Slot belegen. Das Formular weist eine solche Kombination ab und nennt
+den Wochentag des gewählten Datums.
+
+Ist der Termin vorbei, verschwindet er aus der Wochenansicht und aus dem
+CSV-Export – eine Wochenvorlage soll nicht zeigen, was nicht mehr ansteht.
+In der Regel-Liste unter "Bearbeiten" bleibt er sichtbar und ist mit "vorbei"
+gekennzeichnet, damit er nicht unbemerkt verschwindet und gelöscht werden kann.
+Ein Datum in der Vergangenheit lässt sich eintragen, die Seite fragt aber
+einmal nach – sonst sähe ein Tippfehler im Jahr wie ein Fehlschlag aus.
+
+### Datum bei den langen Takten
+
+`startDatum` gilt außerdem für die 4- und 8-Wochen-Rhythmen und benennt einen echten
 Termin der Runde. Der Takt wird von dort aus absolut weitergerechnet, nicht über
 Kalenderwochen-Nummern – sonst würde er am Jahreswechsel springen, weil ein Jahr
 auch 53 Wochen haben kann. Fehlt das Startdatum, lässt sich weder der nächste
