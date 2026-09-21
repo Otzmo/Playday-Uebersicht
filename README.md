@@ -73,6 +73,33 @@ gekennzeichnet, damit er nicht unbemerkt verschwindet und gelöscht werden kann.
 Ein Datum in der Vergangenheit lässt sich eintragen, die Seite fragt aber
 einmal nach – sonst sähe ein Tippfehler im Jahr wie ein Fehlschlag aus.
 
+### Ausfälle
+
+Wiederkehrende Runden können einzelne Termine absagen. Dazu trägt die Regel ein
+optionales Feld `ausfaelle` mit ISO-Datumswerten:
+
+```json
+{ "system": "Kill Team", "slots": ["samstag_vormittag"],
+  "rhythmus": "jede_woche", "ausfaelle": ["2026-09-26", "2026-10-03"] }
+```
+
+Eingetragen wird das beim **Bearbeiten** einer Regel: Dort erscheinen die
+nächsten acht Termine des Takts als Kacheln zum Abhaken. Beim Anlegen einer
+neuen Regel fehlt die Auswahl – da gibt es noch nichts abzusagen – und bei
+`einmalig` ebenfalls, dort löscht man stattdessen die Regel.
+
+Ein Ausfall hängt an einem konkreten Tag, nicht an einer Woche: Belegt eine
+Regel Montag und Freitag, streicht ein Ausfall am Montag nicht den Freitag
+derselben Woche. Die Konfliktprüfung berücksichtigt das und bekommt deshalb den
+Wochentag des jeweiligen Slots mitgegeben.
+
+Vergangene Ausfälle werden beim Speichern verworfen. Sie wirken sich auf nichts
+mehr aus und würden sich über die Jahre ansammeln.
+
+In der Wochenansicht steht bei einer Regel, deren nächster Takttermin
+ausfällt, "26.09. fällt aus, nächster Termin 03.10." – die Absage ist für den
+Leser die wichtigere Information als das Datum danach.
+
 ### Datum bei den langen Takten
 
 `startDatum` gilt außerdem für die 4- und 8-Wochen-Rhythmen und benennt einen echten

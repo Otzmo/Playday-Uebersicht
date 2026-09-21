@@ -360,6 +360,11 @@
         <label for="neuStartDatum" id="labelStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
         <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31">
       </div>
+      <div class="feld" id="feldAusfaelle" style="display:none;">
+        <label id="lblAusfaelle">Termine, die ausfallen (angehakt = findet nicht statt)</label>
+        <!-- Kacheln werden aus dem Takt der Regel erzeugt, siehe baueAusfallAuswahl(). -->
+        <div class="checkbox-grid" id="neuAusfaelle" role="group" aria-labelledby="lblAusfaelle"></div>
+      </div>
       <button class="btn-hinzufuegen" id="btnHinzufuegen">+ Regel hinzufügen</button>
       <button class="btn-abbrechen" id="btnAbbrechen" style="display:none;">Bearbeiten abbrechen</button>
     </div>
@@ -492,6 +497,8 @@ function alsServerDaten(regel){
     farbe: regel.farbe
   };
   if (regel.startDatum) daten.startDatum = regel.startDatum;
+  // Leere Listen speichert Firebase nicht – dann lieber ganz weglassen.
+  if (Array.isArray(regel.ausfaelle) && regel.ausfaelle.length > 0) daten.ausfaelle = regel.ausfaelle;
   return daten;
 }
 
@@ -700,20 +707,28 @@ function formatDatum(ts){
   return d.getUTCFullYear() === diesesJahr ? tagMonat : tagMonat + d.getUTCFullYear();
 }
 
-function naechstesDatum(regel, slot){
-  const wochentagIso = slot.tag.iso;
-  const heute = heuteUTC();
-  const diffZuWochentag = (wochentagIso - isoWochentag(heute) + 7) % 7;
-  let kandidat = heute + diffZuWochentag * TAG_MS;
+/* Die ausgefallenen Termine einer Regel als Menge von ISO-Datumswerten. */
+function ausfallMenge(regel){
+  return new Set(Array.isArray(regel.ausfaelle) ? regel.ausfaelle : []);
+}
 
-  /* Liegt der Slot auf heute, ist aber schon vorbei, ist der nächste
-     Termin frühestens in der kommenden Woche. */
-  if (diffZuWochentag === 0){
-    const jetzt = new Date();
-    if (jetzt.getHours() * 60 + jetzt.getMinutes() >= minutenSeitMitternacht(slot.bis)){
-      kandidat += WOCHE_MS;
-    }
-  }
+/* Frühester Tag, ab dem gesucht wird: heute – oder morgen, wenn der Slot
+   heute schon vorbei ist. */
+function suchbeginn(slot){
+  const heute = heuteUTC();
+  const istHeute = slot.tag.iso === isoWochentag(heute);
+  if (!istHeute) return heute;
+
+  const jetzt = new Date();
+  const vorbei = jetzt.getHours() * 60 + jetzt.getMinutes() >= minutenSeitMitternacht(slot.bis);
+  return vorbei ? heute + TAG_MS : heute;
+}
+
+/* Nächster Termin nach dem reinen Takt, ab dem übergebenen Tag –
+   ohne Rücksicht auf Ausfälle. */
+function terminAb(regel, slot, ab){
+  const wochentagIso = slot.tag.iso;
+  let kandidat = ab + ((wochentagIso - isoWochentag(ab) + 7) % 7) * TAG_MS;
 
   /* Einzeltermin: null, sobald er vorbei ist – daran erkennt die
      Wochenansicht, dass er nicht mehr angezeigt werden soll. */
@@ -750,6 +765,25 @@ function naechstesDatum(regel, slot){
   }
 
   return null;
+}
+
+/* Nächster Termin nach dem Takt, noch ohne Ausfälle. Die Wochenansicht
+   braucht ihn, um "fällt aus" anzeigen zu können. */
+function rohtermin(regel, slot){
+  return terminAb(regel, slot, suchbeginn(slot));
+}
+
+/* Nächster Termin, der tatsächlich stattfindet. */
+function naechstesDatum(regel, slot){
+  const ausfaelle = ausfallMenge(regel);
+  let ts = rohtermin(regel, slot);
+
+  // Die Schranke verhindert eine Endlosschleife bei absurd vielen Ausfällen.
+  for (let i = 0; i < 120 && ts !== null && ausfaelle.has(alsIsoDatum(ts)); i++){
+    ts = terminAb(regel, slot, ts + TAG_MS);
+  }
+
+  return ts !== null && ausfaelle.has(alsIsoDatum(ts)) ? null : ts;
 }
 
 function formatDatumVoll(ts){
@@ -808,7 +842,7 @@ const HORIZONT_WOCHEN = 104;
 
 /* Liefert eine Funktion (Montag einer Woche) -> true | false | null.
    null heißt "nicht entscheidbar", weil das Startdatum fehlt. */
-function wochenTest(regel){
+function grundTakt(regel){
   if (regel.rhythmus === "jede_woche") return () => true;
   if (regel.rhythmus === "gerade_wochen") return montag => isoWoche(montag) % 2 === 0;
   if (regel.rhythmus === "ungerade_wochen") return montag => isoWoche(montag) % 2 === 1;
@@ -827,12 +861,37 @@ function wochenTest(regel){
   return montag => ((Math.round((montag - anker) / WOCHE_MS) % n) + n) % n === 0;
 }
 
-function paarStatus(a, b){
-  // Eine Regel, die jede Woche läuft, trifft jede andere zwangsläufig –
-  // auch eine, deren Startdatum unbekannt ist.
-  if (a.rhythmus === "jede_woche" || b.rhythmus === "jede_woche") return "konflikt";
+/* Der Wochentag wird mitgegeben, weil ein Ausfall an einem konkreten Tag
+   hängt: Belegt eine Regel Montag und Freitag, streicht ein Ausfall am
+   Montag nicht den Freitag derselben Woche. */
+function wochenTest(regel, wochentagIso){
+  const takt = grundTakt(regel);
+  const ausfaelle = ausfallMenge(regel);
+  if (ausfaelle.size === 0) return takt;
 
-  const testA = wochenTest(a), testB = wochenTest(b);
+  return montag => {
+    const laeuft = takt(montag);
+    if (laeuft === false) return false;
+    return ausfaelle.has(alsIsoDatum(montag + (wochentagIso - 1) * TAG_MS)) ? false : laeuft;
+  };
+}
+
+function paarStatus(a, b, wochentagIso){
+  /* Der Wochenvergleich unten kann eine Regel ohne Startdatum nicht
+     einordnen und käme nur auf "möglich". Läuft die andere aber
+     ausnahmslos jede Woche, ist der Konflikt sicher – irgendwann greift
+     die unbekannte Regel, und dann trifft sie auf die wöchentliche.
+     Fällt die wöchentliche gelegentlich aus, gilt das nicht mehr
+     pauschal; dann entscheidet der Vergleich. */
+  const laeuftImmer = regel => regel.rhythmus === "jede_woche" && ausfallMenge(regel).size === 0;
+  const phaseUnbekannt = regel =>
+    (regel.rhythmus === "alle_4_wochen" || regel.rhythmus === "alle_8_wochen") &&
+    ankerMontag(regel) === null;
+
+  if (laeuftImmer(a) && phaseUnbekannt(b)) return "konflikt";
+  if (laeuftImmer(b) && phaseUnbekannt(a)) return "konflikt";
+
+  const testA = wochenTest(a, wochentagIso), testB = wochenTest(b, wochentagIso);
   const start = montagDerWoche(heuteUTC());
   let unsicher = false;
 
@@ -849,13 +908,13 @@ function paarStatus(a, b){
 /* Liefert den Gesamtstatus eines Slots und die betroffenen Paare. Die
    Paare werden bei drei oder mehr Regeln im Slot ausgegeben – dort ist
    sonst nicht erkennbar, welche zwei sich tatsächlich überschneiden. */
-function konfliktAnalyse(treffer){
+function konfliktAnalyse(treffer, wochentagIso){
   const paare = [];
   let status = null;
 
   for (let i = 0; i < treffer.length; i++){
     for (let j = i + 1; j < treffer.length; j++){
-      const einzel = paarStatus(treffer[i], treffer[j]);
+      const einzel = paarStatus(treffer[i], treffer[j], wochentagIso);
       if (!einzel) continue;
       paare.push({ status: einzel, a: treffer[i], b: treffer[j] });
       if (einzel === "konflikt") status = "konflikt";
@@ -917,7 +976,7 @@ function renderWoche(){
     slotsEl.className = "slots";
 
     slotDaten.forEach(slot => {
-      const analyse = konfliktAnalyse(slot.treffer);
+      const analyse = konfliktAnalyse(slot.treffer, tag.iso);
       const konfliktStatus = analyse.status;
       const slotEl = document.createElement("div");
       slotEl.className = slot.treffer.length === 0
@@ -937,9 +996,23 @@ function renderWoche(){
       } else {
         slot.treffer.forEach(t => {
           const naechstesTs = naechstesDatum(t, slot);
-          const datumText = naechstesTs !== null
-            ? ", nächster Termin " + formatDatum(naechstesTs)
-            : ", Datum unbekannt (Startdatum fehlt)";
+          const rohTs = rohtermin(t, slot);
+
+          /* Weicht der tatsächliche Termin vom Takt ab, ist der Takttermin
+             ausgefallen – das ist für den Leser die wichtigere Information
+             als das Datum danach. */
+          const ausgefallen = rohTs !== null && rohTs !== naechstesTs
+            ? ", " + formatDatum(rohTs) + " fällt aus"
+            : "";
+
+          let datumText;
+          if (naechstesTs !== null){
+            datumText = ausgefallen + ", nächster Termin " + formatDatum(naechstesTs);
+          } else if (brauchtDatum(t.rhythmus) && ausIsoDatum(t.startDatum) === null){
+            datumText = ", Datum unbekannt (Startdatum fehlt)";
+          } else {
+            datumText = ausgefallen + ", kein weiterer Termin";
+          }
 
           const eintragEl = document.createElement("span");
           eintragEl.className = "eintrag";
@@ -1037,8 +1110,19 @@ function regelBeschreibung(regel){
     return slotText + " · einmalig am " + formatDatumVoll(datum) + vorbei;
   }
 
-  return slotText + " · " + SUFFIX[regel.rhythmus] +
+  const grund = slotText + " · " + SUFFIX[regel.rhythmus] +
     (datum !== null ? " (ab " + formatDatumVoll(datum) + ")" : "");
+
+  const kuenftige = Array.from(ausfallMenge(regel))
+    .map(ausIsoDatum)
+    .filter(ts => ts !== null && ts >= heuteUTC())
+    .sort((links, rechts) => links - rechts);
+
+  if (kuenftige.length === 0) return grund;
+
+  const gezeigt = kuenftige.slice(0, 3).map(formatDatum).join(", ");
+  const weitere = kuenftige.length > 3 ? " und " + (kuenftige.length - 3) + " weitere" : "";
+  return grund + " · fällt aus am " + gezeigt + weitere;
 }
 
 function renderVerwaltung(){
@@ -1174,6 +1258,82 @@ function farbeFuerEingabe(farbe){
   return sicher;
 }
 
+/* Beim Bearbeiten angehakte Ausfälle. Wird über die Kacheln gepflegt und
+   überlebt ein Neuaufbauen der Liste, etwa wenn sich Slots ändern. */
+let gewaehlteAusfaelle = new Set();
+
+const AUSFALL_VORSCHAU = 8;
+
+function kurzMitWochentag(ts){
+  const tag = TAGE.find(eintrag => eintrag.iso === isoWochentag(ts));
+  return (tag ? tag.name + " " : "") + formatDatum(ts);
+}
+
+/* Bietet die nächsten Takttermine der Regel zum Abhaken an. Nur beim
+   Bearbeiten – bei einer neuen Regel gibt es noch nichts abzusagen –
+   und nicht bei Einzelterminen, die man stattdessen löscht. */
+function baueAusfallAuswahl(){
+  const feld = document.getElementById("feldAusfaelle");
+  const container = document.getElementById("neuAusfaelle");
+  container.textContent = "";
+
+  const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
+  const rhythmus = gewaehlt ? gewaehlt.value : "jede_woche";
+  const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
+
+  if (bearbeiteId === null || rhythmus === "einmalig" || slots.length === 0){
+    feld.style.display = "none";
+    return;
+  }
+
+  const entwurf = { rhythmus: rhythmus, startDatum: document.getElementById("neuStartDatum").value.trim() };
+  const termine = [];
+
+  slots.forEach(typ => {
+    const slot = SLOT_NACH_TYP.get(typ);
+    if (!slot) return;
+
+    let ts = terminAb(entwurf, slot, suchbeginn(slot));
+    for (let i = 0; i < AUSFALL_VORSCHAU && ts !== null; i++){
+      termine.push(ts);
+      ts = terminAb(entwurf, slot, ts + TAG_MS);
+    }
+  });
+
+  /* Bereits gespeicherte Ausfälle mit aufnehmen, auch wenn sie hinter der
+     Vorschau liegen – sonst verschwänden sie beim nächsten Speichern. */
+  gewaehlteAusfaelle.forEach(text => {
+    const ts = ausIsoDatum(text);
+    if (ts !== null && ts >= heuteUTC()) termine.push(ts);
+  });
+
+  const sortiert = Array.from(new Set(termine)).sort((links, rechts) => links - rechts);
+  if (sortiert.length === 0){
+    feld.style.display = "none";
+    return;
+  }
+
+  feld.style.display = "block";
+  sortiert.forEach(ts => {
+    const iso = alsIsoDatum(ts);
+    const kachel = document.createElement("label");
+    kachel.className = "chk";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = iso;
+    box.checked = gewaehlteAusfaelle.has(iso);
+    box.addEventListener("change", () => {
+      if (box.checked) gewaehlteAusfaelle.add(iso);
+      else gewaehlteAusfaelle.delete(iso);
+    });
+
+    kachel.appendChild(box);
+    kachel.appendChild(document.createTextNode(kurzMitWochentag(ts)));
+    container.appendChild(kachel);
+  });
+}
+
 function setzeFormularModus(){
   const bearbeitet = bearbeiteId !== null;
   document.getElementById("formTitel").textContent = bearbeitet ? "Regel bearbeiten" : "Neue Regel";
@@ -1185,6 +1345,7 @@ function formularZuruecksetzen(){
   bearbeiteId = null;
   gewarnterName = null;
   gewarntesDatum = null;
+  gewaehlteAusfaelle = new Set();
   document.getElementById("neuSystem").value = "";
   document.getElementById("neuStartDatum").value = "";
   document.getElementById("neuFarbe").value = "#7C9885";
@@ -1194,12 +1355,14 @@ function formularZuruecksetzen(){
   if (standard) standard.checked = true;
 
   aktualisiereStartDatumFeld();
+  baueAusfallAuswahl();
   zeigeFormFehler("");
   setzeFormularModus();
 }
 
 function starteBearbeiten(regel){
   bearbeiteId = regel.id;
+  gewaehlteAusfaelle = ausfallMenge(regel);
 
   document.getElementById("neuSystem").value = regel.system;
   document.getElementById("neuFarbe").value = farbeFuerEingabe(regel.farbe);
@@ -1214,6 +1377,7 @@ function starteBearbeiten(regel){
   if (radio) radio.checked = true;
 
   aktualisiereStartDatumFeld();
+  baueAusfallAuswahl();
   zeigeFormFehler("");
   setzeFormularModus();
   renderVerwaltung();
@@ -1244,6 +1408,18 @@ function formularLesen(){
   }
 
   const regel = { system, slots, rhythmus, farbe };
+
+  /* Nur künftige Ausfälle behalten: Ein vergangener wirkt sich auf nichts
+     mehr aus und würde sich sonst über die Jahre ansammeln. */
+  const ausfaelle = Array.from(document.querySelectorAll('#neuAusfaelle input:checked'))
+    .map(box => box.value)
+    .filter(iso => {
+      const ts = ausIsoDatum(iso);
+      return ts !== null && ts >= heuteUTC();
+    })
+    .sort();
+
+  if (ausfaelle.length > 0 && rhythmus !== "einmalig") regel.ausfaelle = ausfaelle;
 
   if (rhythmus === "einmalig"){
     const ts = ausIsoDatum(startDatumRoh);
@@ -1432,7 +1608,15 @@ document.getElementById("btnAbmelden").addEventListener("click", () => {
   if (typeof window.ppbAbmelden === "function") window.ppbAbmelden();
 });
 
-document.getElementById("neuRhythmusGroup").addEventListener("change", aktualisiereStartDatumFeld);
+document.getElementById("neuRhythmusGroup").addEventListener("change", () => {
+  aktualisiereStartDatumFeld();
+  baueAusfallAuswahl();
+});
+
+/* Slots und Startdatum bestimmen mit, welche Termine anstehen – die
+   Ausfall-Kacheln müssen also mitwandern. */
+document.getElementById("neuSlots").addEventListener("change", baueAusfallAuswahl);
+document.getElementById("neuStartDatum").addEventListener("change", baueAusfallAuswahl);
 
 document.getElementById("btnAbbrechen").addEventListener("click", () => {
   formularZuruecksetzen();
