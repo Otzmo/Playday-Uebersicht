@@ -242,6 +242,59 @@
 
   footer{ margin-top: 40px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
+  /* --- Druckansicht des Exports ---
+     Auf dem Bildschirm ein helles Blatt auf dunklem Grund, damit man sieht,
+     was aufs Papier kommt. Die Farben stehen hier fest und hängen nicht an
+     den Tokens: das Blatt ist in beiden Fällen hell. */
+  body.druck-offen .wrap{ display: none; }
+  .druck-leiste{
+    max-width: 760px; margin: 0 auto; padding: 16px 16px 0;
+    display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  }
+  .druck-blatt{
+    max-width: 760px; margin: 14px auto 60px; padding: 34px 38px 40px;
+    background: #FFFFFF; color: #1B1D21; border-radius: 4px;
+    box-shadow: 0 6px 28px rgba(0,0,0,.45);
+    color-scheme: light;
+  }
+  .druck-kopf{ border-bottom: 2px solid #C6A15B; padding-bottom: 12px; margin-bottom: 6px; }
+  .druck-kopf .club{ font-size: 12px; color: #8C6D2E; margin: 0 0 4px; }
+  .druck-kopf h2{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 26px; margin: 0 0 6px; }
+  .druck-kopf .zeitraum{ font-size: 13.5px; margin: 0; }
+  .druck-kopf .stand{ font-size: 11.5px; color: #6A6A6A; margin: 4px 0 0; }
+  .druck-woche{ margin-top: 20px; }
+  .druck-woche-titel{
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+    color: #8C6D2E; margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid #E2D8C3;
+    break-after: avoid;
+  }
+  .druck-leer{ font-size: 12.5px; color: #6A6A6A; font-style: italic; margin: 6px 0 0; }
+  .druck-tag{
+    display: flex; gap: 14px; padding: 7px 0; border-bottom: 1px solid #EFEBE3;
+    break-inside: avoid;
+  }
+  .druck-tag:last-child{ border-bottom: none; }
+  .druck-datum{ flex: 0 0 96px; font-size: 13px; font-weight: 600; line-height: 1.35; }
+  .druck-datum span{ display: block; font-weight: 400; font-size: 12px; color: #6A6A6A; }
+  .druck-eintraege{ flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .druck-eintrag{ display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; row-gap: 2px; font-size: 13.5px; }
+  .druck-eintrag .zeit{ flex: 0 0 88px; font-size: 12px; color: #6A6A6A; }
+  .druck-eintrag.unbekannt .zeit{ flex-basis: 150px; }
+  .druck-eintrag .system{ font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .druck-eintrag .system-chip{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .druck-eintrag .rhythmus{ font-size: 12px; color: #6A6A6A; }
+  .druck-marke{
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor;
+  }
+  .druck-eintrag.konflikt .druck-marke{ color: #A02A22; }
+  .druck-eintrag.konflikt .system{ color: #A02A22; }
+  .druck-eintrag.ausfall{ color: #8A8A8A; }
+  .druck-eintrag.ausfall .system{ font-weight: 400; text-decoration: line-through; }
+  .druck-eintrag.ausfall .system-chip{ opacity: .45; }
+  .druck-eintrag.frei .system{ font-weight: 400; font-style: italic; color: #8A8A8A; }
+  .druck-fuss{ margin-top: 22px; padding-top: 8px; border-top: 1px solid #E2D8C3; font-size: 11px; color: #6A6A6A; }
+
   /* Schmale Handys: Tagesspalte und Zeitspalte fressen sonst den Platz,
      der für System + Rhythmus + Datum gebraucht wird. */
   @media (max-width: 380px){
@@ -257,6 +310,16 @@
     .regel-aktionen{ width: 100%; justify-content: flex-end; }
     /* Zwei Datumsfelder nebeneinander werden zu schmal. */
     .zeile-2{ flex-direction: column; align-items: stretch; gap: 0; }
+  }
+
+  /* Druckansicht auf dem Handy: Datum über die Einträge statt daneben. */
+  @media (max-width: 560px){
+    .druck-leiste{ padding: 12px 16px 0; }
+    .druck-blatt{ padding: 22px 16px 28px; margin-top: 10px; }
+    .druck-tag{ flex-direction: column; gap: 4px; }
+    .druck-datum{ flex: none; }
+    .druck-datum span{ display: inline; margin-left: 6px; }
+    .druck-eintrag .zeit{ flex-basis: 78px; }
   }
 
   /* Aushang fürs Vereinsbrett: heller Grund, keine Bedienelemente.
@@ -276,13 +339,15 @@
       --moeglich-bg: #FFFFFF;
       --free-line: #CCCCCC;
     }
-    .header-buttons, #verwaltung, #exportPanel{ display: none !important; }
+    .header-buttons, #verwaltung, #exportPanel, .druck-leiste{ display: none !important; }
     .wrap{ max-width: none; padding: 0; }
     .tag{ break-inside: avoid; }
     /* Diese drei Farben stehen fest im Stylesheet, nicht in den Tokens. */
     .slot.konflikt .zeit, .slot.moeglich .zeit{ color: #555555; }
     #warnungen{ color: #111111; }
+    .druck-blatt{ max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
   }
+  @page{ size: A4; margin: 14mm; }
 </style>
 </head>
 <body>
@@ -295,14 +360,14 @@
       <p class="sub">Feste Zeit-Slots einer normalen Woche, belegt nach Rhythmus – mit dem jeweils nächsten Termin.</p>
     </div>
     <div class="header-buttons">
-      <button class="btn-bearbeiten" id="btnExport" aria-expanded="false" aria-controls="exportPanel">CSV exportieren</button>
+      <button class="btn-bearbeiten" id="btnExport" aria-expanded="false" aria-controls="exportPanel">Exportieren</button>
       <button class="btn-bearbeiten" id="btnBearbeiten" aria-expanded="false" aria-controls="verwaltung">Bearbeiten</button>
     </div>
   </header>
 
   <!-- Nutzt die Formularstile von .neue-regel. -->
   <div class="neue-regel export-panel" id="exportPanel" hidden>
-    <p class="form-titel">Tagesübersicht als CSV</p>
+    <p class="form-titel">Tagesübersicht exportieren</p>
     <p class="form-fehler" id="exportFehler" role="alert"></p>
     <div class="zeile-2">
       <div class="feld">
@@ -314,10 +379,18 @@
         <input type="date" id="exportBis" min="2000-01-01" max="2100-12-31">
       </div>
     </div>
+    <div class="feld">
+      <label id="lblExportFormat">Format</label>
+      <div class="checkbox-grid" role="radiogroup" aria-labelledby="lblExportFormat">
+        <label class="chk"><input type="radio" name="exportFormat" value="xlsx" checked>Excel-Datei</label>
+        <label class="chk"><input type="radio" name="exportFormat" value="druck">Druckansicht / PDF</label>
+        <label class="chk"><input type="radio" name="exportFormat" value="csv">CSV (Rohdaten)</label>
+      </div>
+    </div>
     <div class="feld checkbox-grid">
       <label class="chk"><input type="checkbox" id="exportFrei">Freie Slots mit aufführen</label>
     </div>
-    <button class="btn-hinzufuegen" id="btnExportStarten">Tagesübersicht exportieren</button>
+    <button class="btn-hinzufuegen" id="btnExportStarten">Exportieren</button>
   </div>
 
   <div class="legende">
@@ -402,6 +475,16 @@
     Ein-Wochen-Vorlage, gilt für jede Kalenderwoche gemäß Rhythmus der einzelnen Slots.<br>
     <span id="speicherStatus">Verbinde mit der Vereins-Datenbank …</span>
   </footer>
+</div>
+
+<!-- Druckansicht des Exports. Ersetzt beim Öffnen die ganze Seite, damit
+     beim Drucken nur sie aufs Papier kommt; Inhalt aus zeigeDruckansicht(). -->
+<div id="druckAnsicht" hidden>
+  <div class="druck-leiste">
+    <button class="btn-bearbeiten" id="btnDruckZurueck">← Zurück</button>
+    <button class="btn-bearbeiten aktiv" id="btnDrucken">Drucken / als PDF speichern</button>
+  </div>
+  <div class="druck-blatt" id="druckBlatt"></div>
 </div>
 
 <script>
@@ -858,12 +941,14 @@ function terminUnbekannt(regel){
 
 const EXPORT_MAX_TAGE = 366;
 
-/* Tages\u00FCbersicht f\u00FCr einen Zeitraum: je Tag, je Slot, je Runde eine
-   Zeile. Abgesagte Termine stehen mit "f\u00E4llt aus" drin, damit sichtbar
-   bleibt, dass dort sonst gespielt w\u00FCrde; treffen zwei stattfindende
-   Runden aufeinander, steht bei beiden "Konflikt". */
-function tagesuebersicht(von, bis, mitFrei){
-  const zeilen = [["Datum", "Wochentag", "Zeit", "System", "Rhythmus", "Hinweis"]];
+/* Tagesübersicht für einen Zeitraum: je Tag, je Slot, je Runde ein
+   Eintrag. Alle drei Exportformate bauen darauf auf.
+   art: "termin", "konflikt" (zwei stattfindende Runden im selben Slot),
+   "ausfall" (abgesagter Takttermin – bleibt drin, damit sichtbar ist,
+   dass dort sonst gespielt würde), "frei" oder "unbekannt" (Startdatum
+   fehlt, tag ist dann null; diese stehen gesammelt am Ende). */
+function tagesEintraege(von, bis, mitFrei){
+  const eintraege = [];
 
   for (let tag = von; tag <= bis; tag += TAG_MS){
     const wochentag = TAGE.find(eintrag => eintrag.iso === isoWochentag(tag));
@@ -880,13 +965,13 @@ function tagesuebersicht(von, bis, mitFrei){
       const stattfindend = hier.filter(eintrag => eintrag.stand === "ja").length;
 
       hier.forEach(({ regel, stand }) => {
-        const hinweis = stand === "ausfall" ? "f\u00E4llt aus" : (stattfindend > 1 ? "Konflikt" : "");
-        zeilen.push([formatDatum(tag), wochentag.lang, slot.zeit, regel.system, SUFFIX[regel.rhythmus], hinweis]);
+        const art = stand === "ausfall" ? "ausfall" : (stattfindend > 1 ? "konflikt" : "termin");
+        eintraege.push({ tag, wochentag, slot, regel, art });
       });
 
-      // Auch ein Slot, in dem alles ausf\u00E4llt, ist an dem Tag frei.
+      // Auch ein Slot, in dem alles ausfällt, ist an dem Tag frei.
       if (mitFrei && stattfindend === 0){
-        zeilen.push([formatDatum(tag), wochentag.lang, slot.zeit, "frei", "", ""]);
+        eintraege.push({ tag, wochentag, slot, regel: null, art: "frei" });
       }
     });
   }
@@ -895,17 +980,36 @@ function tagesuebersicht(von, bis, mitFrei){
     (regel.slots || []).forEach(typ => {
       const slot = SLOT_NACH_TYP.get(typ);
       if (!slot) return;
-      zeilen.push(["", slot.tag.lang, slot.zeit, regel.system, SUFFIX[regel.rhythmus],
-        "Termine unbekannt (Startdatum fehlt)"]);
+      eintraege.push({ tag: null, wochentag: slot.tag, slot, regel, art: "unbekannt" });
     });
   });
 
-  return zeilen;
+  return eintraege;
 }
 
-function ladeCsvHerunter(zeilen, dateiname){
-  const csv = zeilen.map(zeile => zeile.map(csvZelle).join(";")).join("\r\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+const HINWEIS = {
+  termin: "",
+  konflikt: "Konflikt",
+  ausfall: "fällt aus",
+  frei: "",
+  unbekannt: "Termine unbekannt (Startdatum fehlt)"
+};
+
+const EXPORT_SPALTEN = ["Datum", "Wochentag", "Zeit", "System", "Rhythmus", "Hinweis"];
+
+/* Eine Zeile als Texte, in der Reihenfolge von EXPORT_SPALTEN. */
+function exportZeile(eintrag){
+  return [
+    eintrag.tag === null ? "" : formatDatum(eintrag.tag),
+    eintrag.wochentag.lang,
+    eintrag.slot.zeit,
+    eintrag.regel ? eintrag.regel.system : "frei",
+    eintrag.regel ? SUFFIX[eintrag.regel.rhythmus] : "",
+    HINWEIS[eintrag.art]
+  ];
+}
+
+function ladeDateiHerunter(blob, dateiname){
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -913,7 +1017,394 @@ function ladeCsvHerunter(zeilen, dateiname){
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Einige Browser lesen die Adresse erst nach dem Klick – darum verzögert freigeben.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function ladeCsvHerunter(eintraege, dateiname){
+  const zeilen = [EXPORT_SPALTEN].concat(eintraege.map(exportZeile));
+  const csv = zeilen.map(zeile => zeile.map(csvZelle).join(";")).join("\r\n");
+  ladeDateiHerunter(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }), dateiname);
+}
+
+/* ============================================================
+   EXCEL-EXPORT
+   Eine .xlsx-Datei ist ein ZIP-Archiv mit einigen XML-Dateien. Die
+   schreiben wir selbst, statt eine Bibliothek nachzuladen: die gängigen
+   bringen ein Megabyte mit, hängen an einem fremden Server und können
+   weit mehr, als hier gebraucht wird. Das ZIP wird unkomprimiert
+   gespeichert ("stored") – bei ein paar tausend Zeilen egal, und so
+   braucht es nur eine Prüfsumme (CRC-32) statt eines Packverfahrens.
+   Formeln entstehen dabei nie: Texte stehen als reiner Text in der
+   Datei, auch wenn ein Systemname mit "=" beginnt.
+   ============================================================ */
+const CRC_TABELLE = (() => {
+  const tabelle = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    tabelle[n] = c >>> 0;
+  }
+  return tabelle;
+})();
+
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABELLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* dateien: [{ name, inhalt (Text) }] -> Blob eines ZIP-Archivs. */
+function zipArchiv(dateien, typ){
+  const kodierer = new TextEncoder();
+  const teile = [];
+  const verzeichnis = [];
+  let versatz = 0;
+
+  dateien.forEach(datei => {
+    const name = kodierer.encode(datei.name);
+    const daten = kodierer.encode(datei.inhalt);
+    const pruefsumme = crc32(daten);
+
+    // Lokaler Kopf (30 Byte + Name), danach die Daten selbst.
+    const kopf = new DataView(new ArrayBuffer(30));
+    kopf.setUint32(0, 0x04034B50, true);
+    kopf.setUint16(4, 20, true);            // benötigte Version 2.0
+    kopf.setUint16(8, 0, true);             // Verfahren 0 = unkomprimiert
+    kopf.setUint16(12, 0x0021, true);       // Datum 01.01.1980 (fest)
+    kopf.setUint32(14, pruefsumme, true);
+    kopf.setUint32(18, daten.length, true);
+    kopf.setUint32(22, daten.length, true);
+    kopf.setUint16(26, name.length, true);
+    teile.push(kopf, name, daten);
+
+    // Eintrag im Inhaltsverzeichnis am Ende (46 Byte + Name).
+    const eintrag = new DataView(new ArrayBuffer(46));
+    eintrag.setUint32(0, 0x02014B50, true);
+    eintrag.setUint16(4, 20, true);
+    eintrag.setUint16(6, 20, true);
+    eintrag.setUint16(10, 0, true);
+    eintrag.setUint16(14, 0x0021, true);
+    eintrag.setUint32(16, pruefsumme, true);
+    eintrag.setUint32(20, daten.length, true);
+    eintrag.setUint32(24, daten.length, true);
+    eintrag.setUint16(28, name.length, true);
+    eintrag.setUint32(42, versatz, true);
+    verzeichnis.push(eintrag, name);
+
+    versatz += 30 + name.length + daten.length;
+  });
+
+  const groesse = verzeichnis.reduce((summe, teil) => summe + teil.byteLength, 0);
+  const ende = new DataView(new ArrayBuffer(22));
+  ende.setUint32(0, 0x06054B50, true);
+  ende.setUint16(8, dateien.length, true);
+  ende.setUint16(10, dateien.length, true);
+  ende.setUint32(12, groesse, true);
+  ende.setUint32(16, versatz, true);
+
+  return new Blob(teile.concat(verzeichnis, [ende]), { type: typ });
+}
+
+/* Text für XML: Sonderzeichen maskieren, in XML verbotene
+   Steuerzeichen entfernen (sonst meldet Excel eine beschädigte Datei). */
+function xmlText(text){
+  return String(text)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* Sammelt Schriften, Füllungen und Rahmen und vergibt für jede
+   Kombination eine Stilnummer, wie Excel sie in den Zellen erwartet. */
+function xlsxStilSammlung(){
+  const listen = { font: [], fill: [], border: [], xf: [] };
+  const nummern = new Map();
+
+  function nummer(liste, xml){
+    const schluessel = liste + xml;
+    if (!nummern.has(schluessel)){
+      nummern.set(schluessel, listen[liste].length);
+      listen[liste].push(xml);
+    }
+    return nummern.get(schluessel);
+  }
+
+  function schrift(s){
+    return "<font>" + (s.fett ? "<b/>" : "") + (s.kursiv ? "<i/>" : "") + (s.durch ? "<strike/>" : "") +
+      '<sz val="11"/><color rgb="FF' + (s.farbe || "1B1D21") + '"/><name val="Calibri"/><family val="2"/></font>';
+  }
+  function fuellung(farbe){
+    return farbe
+      ? '<fill><patternFill patternType="solid"><fgColor rgb="FF' + farbe + '"/><bgColor indexed="64"/></patternFill></fill>'
+      : '<fill><patternFill patternType="none"/></fill>';
+  }
+  function linie(seite, rahmen){
+    return rahmen ? "<" + seite + ' style="' + rahmen.stil + '"><color rgb="FF' + rahmen.farbe + '"/></' + seite + ">" : "<" + seite + "/>";
+  }
+  function rand(r){
+    return "<border>" + linie("left") + linie("right") + linie("top", r.oben) + linie("bottom", r.unten) + "<diagonal/></border>";
+  }
+
+  // Die ersten Einträge schreibt das Format vor: zwei Füllungen, ein Standardstil.
+  nummer("font", schrift({}));
+  nummer("fill", fuellung(null));
+  nummer("fill", '<fill><patternFill patternType="gray125"/></fill>');
+  nummer("border", rand({}));
+  nummer("xf", '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>');
+
+  return {
+    /* s: { fett, kursiv, durch, farbe, fuellung, oben, unten, datum } */
+    stil(s){
+      const font = nummer("font", schrift(s));
+      const fill = s.fuellung ? nummer("fill", fuellung(s.fuellung)) : 0;
+      const border = nummer("border", rand(s));
+      return nummer("xf", '<xf numFmtId="' + (s.datum ? 164 : 49) + '" fontId="' + font + '" fillId="' + fill +
+        '" borderId="' + border + '" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' +
+        '<alignment horizontal="left" vertical="center"/></xf>');
+    },
+    xml(){
+      const block = (name, liste) => "<" + name + ' count="' + liste.length + '">' + liste.join("") + "</" + name + ">";
+      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<numFmts count="1"><numFmt numFmtId="164" formatCode="dd.mm.yyyy"/></numFmts>' +
+        block("fonts", listen.font) + block("fills", listen.fill) + block("borders", listen.border) +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        block("cellXfs", listen.xf) +
+        '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+        "</styleSheet>";
+    }
+  };
+}
+
+/* Tage seit dem 30.12.1899 – so speichert Excel ein Datum. Damit bleibt
+   die Datumsspalte in Excel sortier- und filterbar. */
+const EXCEL_NULLPUNKT = Date.UTC(1899, 11, 30);
+
+/* Farben der Tabelle, an die Seite angelehnt, aber hell genug für Papier. */
+const XLSX_FARBEN = {
+  kopf: "C6A15B", kopfLinie: "8C6D2E", band: "F5F1E8", konflikt: "FBE3E0",
+  konfliktText: "A02A22", grau: "8A8A8A", tagLinie: "DDD5C4", wocheLinie: "C6A15B"
+};
+
+function xlsxDatei(eintraege, titel){
+  const stile = xlsxStilSammlung();
+  const spalten = "ABCDEF";
+  const zeilenXml = [];
+
+  const kopfStil = stile.stil({ fett: true, fuellung: XLSX_FARBEN.kopf,
+    unten: { stil: "medium", farbe: XLSX_FARBEN.kopfLinie } });
+  zeilenXml.push('<row r="1" ht="20" customHeight="1">' + EXPORT_SPALTEN.map((text, i) =>
+    '<c r="' + spalten[i] + '1" s="' + kopfStil + '" t="inlineStr"><is><t>' + xmlText(text) + "</t></is></c>").join("") + "</row>");
+
+  // Wochen im Wechsel leicht hinterlegt; neue Woche mit Goldlinie, neuer Tag mit feiner Linie.
+  let letzteWoche = null, letzterTag = null, band = false;
+
+  eintraege.forEach((eintrag, index) => {
+    const r = index + 2;
+    const woche = eintrag.tag === null ? "offen" : montagDerWoche(eintrag.tag);
+    const neueWoche = woche !== letzteWoche;
+    const neuerTag = eintrag.tag !== letzterTag;
+    if (neueWoche && index > 0) band = !band;
+
+    const grund = {
+      fuellung: eintrag.art === "konflikt" ? XLSX_FARBEN.konflikt : (band ? XLSX_FARBEN.band : null),
+      oben: index === 0 ? null
+        : neueWoche ? { stil: "thin", farbe: XLSX_FARBEN.wocheLinie }
+        : neuerTag ? { stil: "hair", farbe: XLSX_FARBEN.tagLinie } : null
+    };
+    if (eintrag.art === "ausfall") Object.assign(grund, { farbe: XLSX_FARBEN.grau, durch: true });
+    if (eintrag.art === "frei" || eintrag.art === "unbekannt") Object.assign(grund, { farbe: XLSX_FARBEN.grau, kursiv: true });
+
+    const texte = exportZeile(eintrag);
+    const zellen = texte.map((text, i) => {
+      const ref = spalten[i] + r;
+      const s = Object.assign({}, grund);
+      if (i === 0 && eintrag.tag !== null){
+        s.datum = true;
+        return '<c r="' + ref + '" s="' + stile.stil(s) + '"><v>' + Math.round((eintrag.tag - EXCEL_NULLPUNKT) / TAG_MS) + "</v></c>";
+      }
+      if (i === 3 && eintrag.art !== "frei" && eintrag.art !== "unbekannt") s.fett = true;
+      if (i === 5){
+        s.durch = false;
+        if (eintrag.art === "konflikt") Object.assign(s, { fett: true, farbe: XLSX_FARBEN.konfliktText });
+      }
+      if (text === "") return '<c r="' + ref + '" s="' + stile.stil(s) + '"/>';
+      return '<c r="' + ref + '" s="' + stile.stil(s) + '" t="inlineStr"><is><t xml:space="preserve">' + xmlText(text) + "</t></is></c>";
+    });
+    zeilenXml.push('<row r="' + r + '">' + zellen.join("") + "</row>");
+
+    letzteWoche = woche;
+    letzterTag = eintrag.tag;
+  });
+
+  const letzte = eintraege.length + 1;
+  const breiteSystem = Math.min(40, Math.max(16, ...eintraege.map(e => e.regel ? e.regel.system.length + 3 : 0)));
+  const breiten = [12, 12, 14, breiteSystem, 18, 34];
+  const bereich = "A1:F" + letzte;
+
+  const blatt = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+    '<dimension ref="' + bereich + '"/>' +
+    '<sheetViews><sheetView tabSelected="1" workbookViewId="0">' +
+    '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
+    '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>' +
+    '<sheetFormatPr defaultRowHeight="16"/>' +
+    "<cols>" + breiten.map((b, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + b + '" customWidth="1"/>').join("") + "</cols>" +
+    "<sheetData>" + zeilenXml.join("") + "</sheetData>" +
+    '<autoFilter ref="' + bereich + '"/>' +
+    '<pageMargins left="0.5" right="0.5" top="0.7" bottom="0.7" header="0.3" footer="0.3"/>' +
+    '<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>' +
+    "<headerFooter><oddHeader>" + xmlText("&L&B" + titel + "&RPrivateer-Poza-Boyz e.V.") + "</oddHeader>" +
+    "<oddFooter>" + xmlText("&CSeite &P von &N") + "</oddFooter></headerFooter>" +
+    "</worksheet>";
+
+  const mappe = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<bookViews><workbookView/></bookViews>' +
+    '<sheets><sheet name="Spieltage" sheetId="1" r:id="rId1"/></sheets>' +
+    "<definedNames>" +
+    '<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Spieltage!$A$1:$F$' + letzte + "</definedName>" +
+    '<definedName name="_xlnm.Print_Titles" localSheetId="0">Spieltage!$1:$1</definedName>' +
+    "</definedNames></workbook>";
+
+  const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.";
+
+  return zipArchiv([
+    { name: "[Content_Types].xml", inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="' + CT + 'sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="' + CT + 'worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="' + CT + 'styles+xml"/>' +
+      "</Types>" },
+    { name: "_rels/.rels", inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="' + R + '/officeDocument" Target="xl/workbook.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/workbook.xml", inhalt: mappe },
+    { name: "xl/_rels/workbook.xml.rels", inhalt: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="' + R + '/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '<Relationship Id="rId2" Type="' + R + '/styles" Target="styles.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/worksheets/sheet1.xml", inhalt: blatt },
+    { name: "xl/styles.xml", inhalt: stile.xml() }
+  ], CT + "sheet");
+}
+
+/* ============================================================
+   DRUCKANSICHT
+   Nach Wochen und Tagen gegliederte Liste auf hellem Blatt. Drucken
+   bzw. "Als PDF speichern" übernimmt der Browser. Aufgebaut nur mit
+   textContent, weil Systemnamen Freitext sind.
+   ============================================================ */
+function element(tag, klasse, text){
+  const el = document.createElement(tag);
+  if (klasse) el.className = klasse;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function druckEintrag(eintrag){
+  const zeile = element("div", "druck-eintrag " + eintrag.art);
+  zeile.appendChild(element("span", "zeit", eintrag.slot.zeit));
+
+  const system = element("span", "system");
+  if (eintrag.regel){
+    const chip = element("span", "system-chip");
+    chip.style.background = sichereFarbe(eintrag.regel.farbe);
+    system.appendChild(chip);
+    system.appendChild(document.createTextNode(eintrag.regel.system));
+  } else {
+    system.textContent = "frei";
+  }
+  zeile.appendChild(system);
+
+  if (eintrag.regel) zeile.appendChild(element("span", "rhythmus", SUFFIX[eintrag.regel.rhythmus]));
+  if (eintrag.art === "konflikt" || eintrag.art === "ausfall"){
+    zeile.appendChild(element("span", "druck-marke", HINWEIS[eintrag.art]));
+  }
+  return zeile;
+}
+
+function zeigeDruckansicht(eintraege, von, bis){
+  const blatt = document.getElementById("druckBlatt");
+  blatt.replaceChildren();
+
+  const kopf = element("div", "druck-kopf");
+  kopf.appendChild(element("p", "club", "Privateer-Poza-Boyz e.V."));
+  kopf.appendChild(element("h2", "", "Spieltage"));
+  kopf.appendChild(element("p", "zeitraum", formatDatum(von) + " – " + formatDatum(bis)));
+
+  const zaehle = art => eintraege.filter(e => e.art === art).length;
+  const mehrzahl = (anzahl, eins, mehr) => anzahl + " " + (anzahl === 1 ? eins : mehr);
+  // Ein Konflikt ist ein Slot an einem Tag, nicht jede beteiligte Runde.
+  const konflikte = new Set(eintraege.filter(e => e.art === "konflikt").map(e => e.tag + e.slot.typ)).size;
+  const teile = [mehrzahl(zaehle("termin") + zaehle("konflikt"), "Termin", "Termine")];
+  if (konflikte) teile.push(mehrzahl(konflikte, "Konflikt", "Konflikte"));
+  if (zaehle("ausfall")) teile.push(mehrzahl(zaehle("ausfall"), "Ausfall", "Ausfälle"));
+  kopf.appendChild(element("p", "stand", teile.join(" · ") + " · Stand " + formatDatum(heuteUTC())));
+  blatt.appendChild(kopf);
+
+  // Jede Woche des Zeitraums bekommt eine Überschrift, auch eine leere –
+  // sonst fällt auf dem Aushang nicht auf, dass dort nichts stattfindet.
+  for (let montag = montagDerWoche(von); montag <= bis; montag += WOCHE_MS){
+    const woche = element("section", "druck-woche");
+    woche.appendChild(element("h3", "druck-woche-titel",
+      "KW " + isoWoche(montag) + " · " + formatDatum(Math.max(montag, von)) + " – " + formatDatum(Math.min(montag + 6 * TAG_MS, bis))));
+
+    let tageMitEintrag = 0;
+    for (let tag = Math.max(montag, von); tag <= Math.min(montag + 6 * TAG_MS, bis); tag += TAG_MS){
+      const amTag = eintraege.filter(e => e.tag === tag);
+      if (!amTag.length) continue;
+      tageMitEintrag++;
+
+      const zeile = element("div", "druck-tag");
+      const datum = element("div", "druck-datum", amTag[0].wochentag.lang);
+      datum.appendChild(element("span", "", formatDatum(tag)));
+      zeile.appendChild(datum);
+
+      const liste = element("div", "druck-eintraege");
+      amTag.forEach(e => liste.appendChild(druckEintrag(e)));
+      zeile.appendChild(liste);
+      woche.appendChild(zeile);
+    }
+    if (!tageMitEintrag) woche.appendChild(element("p", "druck-leer", "Keine Spieltage in dieser Woche."));
+    blatt.appendChild(woche);
+  }
+
+  const offen = eintraege.filter(e => e.art === "unbekannt");
+  if (offen.length){
+    const woche = element("section", "druck-woche");
+    woche.appendChild(element("h3", "druck-woche-titel", "Ohne Startdatum – Termine unbekannt"));
+    const liste = element("div", "druck-eintraege");
+    offen.forEach(e => {
+      const zeile = druckEintrag(e);
+      zeile.querySelector(".zeit").textContent = e.wochentag.lang + " " + e.slot.zeit;
+      liste.appendChild(zeile);
+    });
+    woche.appendChild(liste);
+    blatt.appendChild(woche);
+  }
+
+  blatt.appendChild(element("p", "druck-fuss",
+    "Konflikt: zwei Runden im selben Slot. Durchgestrichen: Termin fällt aus. " +
+    "Aktueller Stand unter otzmo.github.io/Playday-Uebersicht"));
+
+  document.getElementById("druckAnsicht").hidden = false;
+  document.body.classList.add("druck-offen");
+  window.scrollTo(0, 0);
+  document.getElementById("btnDrucken").focus();
+}
+
+function schliesseDruckansicht(){
+  if (document.getElementById("druckAnsicht").hidden) return;
+  document.getElementById("druckAnsicht").hidden = true;
+  document.body.classList.remove("druck-offen");
+  document.getElementById("btnExportStarten").focus();
 }
 
 function zeigeExportFehler(text){
@@ -929,21 +1420,26 @@ function exportiereZeitraum(){
   const bis = ausIsoDatum(bisText);
 
   if (von === null || bis === null){
-    zeigeExportFehler("Bitte bei \u201EVon\u201C und \u201EBis\u201C je ein Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " w\u00E4hlen.");
+    zeigeExportFehler("Bitte bei „Von“ und „Bis“ je ein Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
     return;
   }
   if (bis < von){
-    zeigeExportFehler("\u201EBis\u201C muss am selben Tag wie \u201EVon\u201C oder danach liegen.");
+    zeigeExportFehler("„Bis“ muss am selben Tag wie „Von“ oder danach liegen.");
     return;
   }
   if ((bis - von) / TAG_MS + 1 > EXPORT_MAX_TAGE){
-    zeigeExportFehler("Der Zeitraum darf h\u00F6chstens " + EXPORT_MAX_TAGE + " Tage umfassen.");
+    zeigeExportFehler("Der Zeitraum darf höchstens " + EXPORT_MAX_TAGE + " Tage umfassen.");
     return;
   }
 
   zeigeExportFehler("");
-  const zeilen = tagesuebersicht(von, bis, document.getElementById("exportFrei").checked);
-  ladeCsvHerunter(zeilen, "spieltage_" + vonText + "_bis_" + bisText + ".csv");
+  const eintraege = tagesEintraege(von, bis, document.getElementById("exportFrei").checked);
+  const format = document.querySelector('input[name="exportFormat"]:checked').value;
+  const dateiname = "spieltage_" + vonText + "_bis_" + bisText;
+
+  if (format === "druck") zeigeDruckansicht(eintraege, von, bis);
+  else if (format === "csv") ladeCsvHerunter(eintraege, dateiname + ".csv");
+  else ladeDateiHerunter(xlsxDatei(eintraege, "Spieltage " + formatDatum(von) + " – " + formatDatum(bis)), dateiname + ".xlsx");
 }
 
 /* Konflikte werden über einen konkreten Zeitraum geprüft, nicht mehr über
@@ -1687,6 +2183,11 @@ document.getElementById("btnExport").addEventListener("click", () => {
 });
 
 document.getElementById("btnExportStarten").addEventListener("click", exportiereZeitraum);
+document.getElementById("btnDruckZurueck").addEventListener("click", schliesseDruckansicht);
+document.getElementById("btnDrucken").addEventListener("click", () => window.print());
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") schliesseDruckansicht();
+});
 
 /* ============================================================
    FREISCHALTUNG

@@ -17,7 +17,7 @@ pushen – GitHub Pages veröffentlicht `main` automatisch.
 Zwei Script-Blöcke am Dateiende:
 
 - Der **klassische Block** enthält die gesamte Logik: Wochenraster, Regeln,
-  Terminberechnung, Konfliktprüfung, Formular, CSV-Export.
+  Terminberechnung, Konfliktprüfung, Formular, Export.
 - Der **Modul-Block** (`type="module"`) lädt Firebase und verbindet sich mit
   Datenbank und Anmeldung. Er ruft die Funktionen `ppbServerDaten`,
   `ppbVerbindung`, `ppbFehler` und `ppbFreischaltung` im klassischen Block auf
@@ -36,7 +36,7 @@ Neun feste Zeit-Slots pro Woche, definiert im Array `TAGE`:
 - Samstag und Sonntag Nachmittag, 16:00–22:00
 
 `TAGE` ist die **einzige** Quelle für Tage, Zeiten und Beschriftungen. Wochen-
-ansicht, Checkbox-Auswahl im Formular, Labels und CSV-Export werden daraus
+ansicht, Checkbox-Auswahl im Formular, Labels und Export werden daraus
 erzeugt; eine Zeitänderung passiert nur an dieser Stelle. Die Slot-Schlüssel
 (`samstag_vormittag` usw.) stehen so auch in gespeicherten Regeln und dürfen
 nicht umbenannt werden.
@@ -90,7 +90,7 @@ Mittwoch-Slot belegen. Das Formular weist eine solche Kombination ab und nennt
 den Wochentag des gewählten Datums.
 
 Ist der Termin vorbei, verschwindet er aus der Wochenansicht – eine
-Wochenvorlage soll nicht zeigen, was nicht mehr ansteht. Im CSV-Export
+Wochenvorlage soll nicht zeigen, was nicht mehr ansteht. Im Export
 erscheint er, wenn der gewählte Zeitraum sein Datum einschließt.
 In der Regel-Liste unter "Bearbeiten" bleibt er sichtbar und ist mit "vorbei"
 gekennzeichnet, damit er nicht unbemerkt verschwindet und gelöscht werden kann.
@@ -251,45 +251,74 @@ der Browser solche Dialoge kommentarlos und liefert `false` zurück – Löschen
 Zurücksetzen waren dadurch wirkungslos, ohne jede Fehlermeldung.
 
 Freitext von Nutzern (Systemnamen, Farben) wird nie über `innerHTML` eingefügt,
-sondern über `textContent` beziehungsweise geprüfte Farbwerte. Im CSV-Export
-bekommen Zellen mit führendem `=`, `+`, `-` oder `@` ein vorangestelltes
-Apostroph, damit Tabellenprogramme sie nicht als Formel ausführen.
+sondern über `textContent` beziehungsweise geprüfte Farbwerte – auch nicht in
+der Druckansicht des Exports. Im CSV-Export bekommen Zellen mit führendem `=`,
+`+`, `-` oder `@` ein vorangestelltes Apostroph, damit Tabellenprogramme sie
+nicht als Formel ausführen. In der Excel-Datei stellt sich das Problem nicht:
+Texte stehen dort als reiner Text, nie als Formel.
 
 Keine `<table>`-Elemente: Tabellen sind auf dem Handy schlecht lesbar. Unter
 380 px Breite stapeln sich Tag, Zeit und Inhalt untereinander. Es gibt eine
-Druckansicht (`@media print`) für den Aushang am Vereinsbrett.
+Druckansicht (`@media print`) für den Aushang am Vereinsbrett; ist die
+Druckansicht des Exports offen, wird stattdessen nur sie gedruckt.
 
-## CSV-Export
+## Export
 
-"CSV exportieren" öffnet ein Feld mit **Von** und **Bis** (vorbelegt: heute bis
-in vier Wochen). Die Datei ist eine Tagesübersicht: je Tag, je Slot, je Runde
-eine Zeile, nach Datum sortiert, mit den Spalten Datum, Wochentag, Zeit,
-System, Rhythmus und Hinweis.
+"Exportieren" öffnet ein Feld mit **Von** und **Bis** (vorbelegt: heute bis in
+vier Wochen) und der Wahl des Formats. Inhalt ist in allen drei Formaten
+derselbe, eine Tagesübersicht: je Tag, je Slot, je Runde ein Eintrag, nach
+Datum sortiert, mit Datum, Wochentag, Zeit, System, Rhythmus und Hinweis
+(gebaut in `tagesEintraege()`).
 
 - Abgesagte Termine stehen mit Hinweis "fällt aus" drin – so bleibt sichtbar,
   dass dort sonst gespielt würde.
 - Treffen an einem Tag im selben Slot zwei Runden aufeinander, die beide
   stattfinden, steht bei beiden "Konflikt". Fällt eine davon aus, ist es kein
   Konflikt.
-- Mit "Freie Slots mit aufführen" bekommt jeder unbelegte Slot eine Zeile
+- Mit "Freie Slots mit aufführen" bekommt jeder unbelegte Slot einen Eintrag
   "frei" – auch einer, in dem alle Runden des Tages ausfallen.
 - Runden mit langem Takt ohne Startdatum lassen sich keinem Tag zuordnen. Sie
   stehen einmal am Ende, ohne Datum, mit "Termine unbekannt".
 
 Der Zeitraum ist auf 366 Tage begrenzt. Dateiname:
-`spieltage_<von>_bis_<bis>.csv`. Die Datei beginnt mit einer UTF-8-Kennung und
-trennt mit Semikolon, damit Excel sie auf deutschen Systemen direkt richtig
-öffnet.
+`spieltage_<von>_bis_<bis>.xlsx` bzw. `.csv`.
 
-Im Artefakt (der Vorschau in Claude) löst der Knopf keinen Download aus – der
-Viewer blockiert Downloads. Auf der echten Seite funktioniert er.
+**Excel-Datei** (Voreinstellung): formatiert und weiter bearbeitbar. Kopfzeile
+fett auf Gold, fixiert und mit Filter; Datum als echtes Datum (sortier- und
+filterbar); Wochen im Wechsel leicht hinterlegt, neue Woche mit Goldlinie,
+neuer Tag mit feiner Linie; Konflikte rot hinterlegt, Ausfälle grau
+durchgestrichen, freie Slots grau kursiv. Beim Drucken aus Excel: A4 hoch,
+auf Seitenbreite, Kopfzeile auf jeder Seite, Zeitraum oben, Seitenzahl unten.
+
+Die Datei wird in der Seite selbst erzeugt (`xlsxDatei()`, `zipArchiv()`),
+ohne Bibliothek: die gängigen bringen rund ein Megabyte mit und hängen an einem
+fremden Server. Eine .xlsx ist ein ZIP mit einigen XML-Dateien; das ZIP wird
+unkomprimiert geschrieben, dafür reicht eine CRC-32-Prüfsumme. Geprüft mit
+openpyxl, ExcelJS und SheetJS. Wer daran etwas ändert: Excel ist bei der
+Reihenfolge der XML-Elemente streng und meldet sonst eine "beschädigte" Datei.
+
+**Druckansicht / PDF**: ersetzt die Seite durch ein helles Blatt, gegliedert
+nach Kalenderwochen und Tagen, mit Farbpunkt je System, Zählung oben
+(Termine, Konflikte, Ausfälle) und Stand-Datum. Wochen ohne Termin stehen mit
+"Keine Spieltage in dieser Woche." drin, damit die Lücke auffällt. "Drucken /
+als PDF speichern" öffnet den Druckdialog des Browsers; "Zurück" oder Esc
+schließt die Ansicht. Freie Slots lassen sich auch hier einblenden, machen die
+Liste aber lang.
+
+**CSV (Rohdaten)**: ohne Formatierung, zum Weiterverarbeiten. Beginnt mit einer
+UTF-8-Kennung und trennt mit Semikolon, damit Excel sie auf deutschen Systemen
+direkt richtig öffnet.
+
+Im Artefakt (der Vorschau in Claude) lösen Excel und CSV keinen Download aus –
+der Viewer blockiert Downloads –, und der Druckdialog kann dort ausbleiben. Auf
+der echten Seite funktioniert beides.
 
 ## Offene Punkte
 
 - **Kein Backup.** Alle Daten liegen an einer Stelle. "Alle Regeln löschen"
   trifft mit zwei Klicks den Spielplan für alle, ohne Rückholmöglichkeit. Der
   kostenlose Firebase-Tarif kennt keine automatischen Sicherungen. Der
-  CSV-Export ist **keine** Sicherung: Er enthält Termine, nicht die Regeln, und
+  Export ist **keine** Sicherung: Er enthält Termine, nicht die Regeln, und
   lässt sich nicht wieder einlesen.
 - Die Datenbankregeln prüfen nicht, ob eingehende Daten die richtige Form haben.
   Unkritisch, solange nur Leute mit Passwort schreiben.
