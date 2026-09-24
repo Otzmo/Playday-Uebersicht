@@ -381,8 +381,8 @@
         <input type="color" id="neuFarbe" value="#7C9885">
       </div>
       <div class="feld" id="feldStartDatum">
-        <label for="neuStartDatum" id="labelStartDatum">Erster Termin (optional – ermöglicht exakte statt "möglicher" Konflikterkennung)</label>
-        <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31">
+        <label for="neuStartDatum" id="labelStartDatum">Erster Termin – ab hier läuft die Runde</label>
+        <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31" aria-required="true">
       </div>
       <div class="feld" id="feldAusfaelle" style="display:none;">
         <label id="lblAusfaelle">Termine, die ausfallen (angehakt = findet nicht statt)</label>
@@ -1232,7 +1232,8 @@ function regelBeschreibung(regel){
 
   const grund = slotText + " · " + SUFFIX[regel.rhythmus] +
     (datum !== null ? " (ab " + formatDatum(datum) + ")" : "") +
-    (VERALTETE_RHYTHMEN.has(regel.rhythmus) ? " – bitte auf „alle 2 Wochen“ umstellen" : "");
+    (VERALTETE_RHYTHMEN.has(regel.rhythmus) ? " – bitte auf „alle 2 Wochen“ umstellen"
+      : datum === null ? " – Startdatum fehlt" : "");
 
   const kuenftige = Array.from(ausfallMenge(regel))
     .map(ausIsoDatum)
@@ -1370,10 +1371,9 @@ function aktualisiereStartDatumFeld(){
   if (rhythmus === "einmalig"){
     text = "Datum des Termins – bestimmt zugleich den Wochentag";
   } else if (taktWochen(rhythmus) !== null){
-    text = "Erster Termin (optional – legt fest, ab wann die Runde läuft, " +
-      "und macht aus einem \"möglichen\" Konflikt einen eindeutigen)";
+    text = "Erster Termin – ab hier läuft die Runde, und von hier aus wird der Takt gezählt";
   } else {
-    text = "Erster Termin (optional – ab wann die Runde läuft)";
+    text = "Erster Termin – ab hier läuft die Runde";
   }
   document.getElementById("labelStartDatum").textContent = text;
 }
@@ -1519,6 +1519,20 @@ function starteBearbeiten(regel){
     if (termin !== null) document.getElementById("neuStartDatum").value = alsIsoDatum(termin);
     hinweis = "Diese Runde läuft noch nach " + SUFFIX[regel.rhythmus] + ". Das gibt es nicht mehr – " +
       "bitte einen Rhythmus wählen. Für denselben Wechsel: „alle 2 Wochen“, das Startdatum ist schon passend eingetragen.";
+  } else if (regel.rhythmus !== "einmalig" && ausIsoDatum(regel.startDatum) === null){
+    /* Aus der Zeit, als das Startdatum noch freiwillig war. Lässt sich der
+       nächste Termin berechnen (wöchentlich), wird er vorgeschlagen; bei
+       einem Takt ohne Startdatum gibt es nichts zu berechnen. */
+    const slot = SLOT_NACH_TYP.get((regel.slots || [])[0]);
+    const termin = slot ? rohtermin(regel, slot) : null;
+    if (termin !== null){
+      document.getElementById("neuStartDatum").value = alsIsoDatum(termin);
+      hinweis = "Für diese Runde war noch kein Startdatum eingetragen. Vorgeschlagen ist ihr nächster Termin – " +
+        "bitte prüfen und speichern.";
+    } else {
+      hinweis = "Für diese Runde fehlt das Startdatum. Bitte einen echten Termin der Runde eintragen – " +
+        "erst dann lassen sich ihre Termine berechnen.";
+    }
   }
 
   aktualisiereStartDatumFeld();
@@ -1599,15 +1613,17 @@ function formularLesen(){
     return regel;
   }
 
-  // Bei allen übrigen Rhythmen ist das Datum optional: ab wann die Runde läuft.
-  if (startDatumRoh){
-    if (ausIsoDatum(startDatumRoh) === null){
-      zeigeFormFehler("Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
-      startDatumFeld.focus();
-      return null;
-    }
-    regel.startDatum = startDatumRoh;
+  /* Das Startdatum ist Pflicht: Bei den Takten ist es Taktgeber, ohne das
+     sich kein Termin bestimmen lässt, und auch bei wöchentlichen Runden
+     soll feststehen, ab wann sie laufen. */
+  if (ausIsoDatum(startDatumRoh) === null){
+    zeigeFormFehler(startDatumRoh
+      ? "Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen."
+      : "Bitte den ersten Termin der Runde angeben.");
+    startDatumFeld.focus();
+    return null;
   }
+  regel.startDatum = startDatumRoh;
 
   return regel;
 }

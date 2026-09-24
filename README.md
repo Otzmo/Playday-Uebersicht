@@ -126,12 +126,17 @@ Leser die wichtigere Information als das Datum danach.
 
 ### Startdatum
 
-`startDatum` ist bei jedem Rhythmus möglich und legt fest, **ab wann** die Runde
-läuft: Vor diesem Tag gibt es keinen Termin, und die Konfliktprüfung zählt die
-Wochen davor nicht mit. Damit lässt sich "ab Oktober jeden Samstag" abbilden.
+`startDatum` ist bei **jedem** Rhythmus Pflicht: Das Formular speichert keine
+Regel ohne. Es legt fest, ab wann die Runde läuft – vor diesem Tag gibt es
+keinen Termin, und die Konfliktprüfung zählt die Wochen davor nicht mit. Damit
+lässt sich "ab Oktober jeden Samstag" abbilden.
 
-Ohne Startdatum läuft eine Runde von Anfang an – für wöchentliche Runden ist das
-Feld also rein optional.
+Regeln, die aus der Zeit stammen, als das Feld noch freiwillig war, bleiben
+gültig: Eine wöchentliche Runde ohne Startdatum läuft einfach von Anfang an,
+ein Takt ohne Startdatum zeigt "Datum unbekannt". In der Regel-Liste tragen
+beide den Zusatz "Startdatum fehlt". Beim Bearbeiten schlägt das Formular den
+nächsten Termin vor, wenn er sich berechnen lässt (wöchentlich), und verlangt
+sonst eine Eingabe; gespeichert wird so oder so nur mit Datum.
 
 ### Zusätzliche Rolle bei den langen Takten
 
