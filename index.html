@@ -213,6 +213,9 @@
     background: var(--bg); border: 1px solid var(--panel-line); border-radius: 8px;
     padding: 7px 10px; font-size: 12.5px; cursor: pointer; user-select: none;
   }
+  /* ".neue-regel label" setzt display:block und ist spezifischer als .chk –
+     ohne diese Zeile greift der gap nicht und das Kästchen klebt am Text. */
+  .neue-regel label.chk{ display: flex; }
   .chk input{ accent-color: var(--gold); margin: 0; }
   .chk:has(input:checked){ border-color: var(--gold); color: var(--gold); }
   .btn-hinzufuegen{
@@ -252,6 +255,8 @@
     .eintrag .suffix{ flex-basis: 100%; }
     .regel-zeile{ flex-wrap: wrap; }
     .regel-aktionen{ width: 100%; justify-content: flex-end; }
+    /* Zwei Datumsfelder nebeneinander werden zu schmal. */
+    .zeile-2{ flex-direction: column; align-items: stretch; gap: 0; }
   }
 
   /* Aushang fürs Vereinsbrett: heller Grund, keine Bedienelemente.
@@ -271,7 +276,7 @@
       --moeglich-bg: #FFFFFF;
       --free-line: #CCCCCC;
     }
-    .header-buttons, #verwaltung{ display: none !important; }
+    .header-buttons, #verwaltung, #exportPanel{ display: none !important; }
     .wrap{ max-width: none; padding: 0; }
     .tag{ break-inside: avoid; }
     /* Diese drei Farben stehen fest im Stylesheet, nicht in den Tokens. */
@@ -290,10 +295,30 @@
       <p class="sub">Feste Zeit-Slots einer normalen Woche, belegt nach Rhythmus – mit dem jeweils nächsten Termin.</p>
     </div>
     <div class="header-buttons">
-      <button class="btn-bearbeiten" id="btnExport">CSV exportieren</button>
+      <button class="btn-bearbeiten" id="btnExport" aria-expanded="false" aria-controls="exportPanel">CSV exportieren</button>
       <button class="btn-bearbeiten" id="btnBearbeiten" aria-expanded="false" aria-controls="verwaltung">Bearbeiten</button>
     </div>
   </header>
+
+  <!-- Nutzt die Formularstile von .neue-regel. -->
+  <div class="neue-regel export-panel" id="exportPanel" hidden>
+    <p class="form-titel">Tagesübersicht als CSV</p>
+    <p class="form-fehler" id="exportFehler" role="alert"></p>
+    <div class="zeile-2">
+      <div class="feld">
+        <label for="exportVon">Von</label>
+        <input type="date" id="exportVon" min="2000-01-01" max="2100-12-31">
+      </div>
+      <div class="feld">
+        <label for="exportBis">Bis</label>
+        <input type="date" id="exportBis" min="2000-01-01" max="2100-12-31">
+      </div>
+    </div>
+    <div class="feld checkbox-grid">
+      <label class="chk"><input type="checkbox" id="exportFrei">Freie Slots mit aufführen</label>
+    </div>
+    <button class="btn-hinzufuegen" id="btnExportStarten">Tagesübersicht exportieren</button>
+  </div>
 
   <div class="legende">
     <span><span class="dot belegt"></span> Belegt (Farbe je System)</span>
@@ -801,32 +826,108 @@ function csvZelle(text){
   return t;
 }
 
-function exportiereCSV(){
-  const zeilen = [["Tag", "Zeit", "System", "Rhythmus", "Naechster_Termin"]];
+/* Findet die Regel an genau diesem Tag in diesem Slot statt?
+   "ja", "ausfall" (Takttermin, aber abgesagt) oder "nein".
+   Der Tag muss auf den Wochentag des Slots fallen. */
+function terminAmTag(regel, slot, tag){
+  if (terminAb(regel, slot, tag) !== tag) return "nein";
+  return ausfallMenge(regel).has(alsIsoDatum(tag)) ? "ausfall" : "ja";
+}
 
-  ALLE_SLOTS.forEach(slot => {
-    REGELN
-      .filter(regel => (regel.slots || []).includes(slot.typ))
-      .forEach(regel => {
-        const naechstesTs = naechstesDatum(regel, slot);
-        // Abgelaufene Einzeltermine stehen nicht mehr an.
-        if (regel.rhythmus === "einmalig" && naechstesTs === null) return;
+/* Eine Regel mit langem Takt ohne Startdatum l\u00E4sst sich keinem Tag
+   zuordnen \u2013 sie erscheint in der \u00DCbersicht gesondert am Ende. */
+function terminUnbekannt(regel){
+  return brauchtDatum(regel.rhythmus) && ausIsoDatum(regel.startDatum) === null;
+}
 
-        const datumText = naechstesTs !== null ? formatDatum(naechstesTs) : "unbekannt (Startdatum fehlt)";
-        zeilen.push([slot.tag.name, slot.zeit, regel.system, SUFFIX[regel.rhythmus], datumText]);
+const EXPORT_MAX_TAGE = 366;
+
+/* Tages\u00FCbersicht f\u00FCr einen Zeitraum: je Tag, je Slot, je Runde eine
+   Zeile. Abgesagte Termine stehen mit "f\u00E4llt aus" drin, damit sichtbar
+   bleibt, dass dort sonst gespielt w\u00FCrde; treffen zwei stattfindende
+   Runden aufeinander, steht bei beiden "Konflikt". */
+function tagesuebersicht(von, bis, mitFrei){
+  const zeilen = [["Datum", "Wochentag", "Zeit", "System", "Rhythmus", "Hinweis"]];
+
+  for (let tag = von; tag <= bis; tag += TAG_MS){
+    const wochentag = TAGE.find(eintrag => eintrag.iso === isoWochentag(tag));
+
+    SLOTS_PRO_TAG.get(wochentag).forEach(slot => {
+      const hier = [];
+      REGELN
+        .filter(regel => (regel.slots || []).includes(slot.typ) && !terminUnbekannt(regel))
+        .forEach(regel => {
+          const stand = terminAmTag(regel, slot, tag);
+          if (stand !== "nein") hier.push({ regel, stand });
+        });
+
+      const stattfindend = hier.filter(eintrag => eintrag.stand === "ja").length;
+
+      hier.forEach(({ regel, stand }) => {
+        const hinweis = stand === "ausfall" ? "f\u00E4llt aus" : (stattfindend > 1 ? "Konflikt" : "");
+        zeilen.push([formatDatum(tag), wochentag.lang, slot.zeit, regel.system, SUFFIX[regel.rhythmus], hinweis]);
       });
+
+      // Auch ein Slot, in dem alles ausf\u00E4llt, ist an dem Tag frei.
+      if (mitFrei && stattfindend === 0){
+        zeilen.push([formatDatum(tag), wochentag.lang, slot.zeit, "frei", "", ""]);
+      }
+    });
+  }
+
+  REGELN.filter(terminUnbekannt).forEach(regel => {
+    (regel.slots || []).forEach(typ => {
+      const slot = SLOT_NACH_TYP.get(typ);
+      if (!slot) return;
+      zeilen.push(["", slot.tag.lang, slot.zeit, regel.system, SUFFIX[regel.rhythmus],
+        "Termine unbekannt (Startdatum fehlt)"]);
+    });
   });
 
+  return zeilen;
+}
+
+function ladeCsvHerunter(zeilen, dateiname){
   const csv = zeilen.map(zeile => zeile.map(csvZelle).join(";")).join("\r\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "spieltage-uebersicht.csv";
+  a.download = dateiname;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function zeigeExportFehler(text){
+  const el = document.getElementById("exportFehler");
+  el.textContent = text || "";
+  el.classList.toggle("aktiv", !!text);
+}
+
+function exportiereZeitraum(){
+  const vonText = document.getElementById("exportVon").value;
+  const bisText = document.getElementById("exportBis").value;
+  const von = ausIsoDatum(vonText);
+  const bis = ausIsoDatum(bisText);
+
+  if (von === null || bis === null){
+    zeigeExportFehler("Bitte bei \u201EVon\u201C und \u201EBis\u201C je ein Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " w\u00E4hlen.");
+    return;
+  }
+  if (bis < von){
+    zeigeExportFehler("\u201EBis\u201C muss am selben Tag wie \u201EVon\u201C oder danach liegen.");
+    return;
+  }
+  if ((bis - von) / TAG_MS + 1 > EXPORT_MAX_TAGE){
+    zeigeExportFehler("Der Zeitraum darf h\u00F6chstens " + EXPORT_MAX_TAGE + " Tage umfassen.");
+    return;
+  }
+
+  zeigeExportFehler("");
+  const zeilen = tagesuebersicht(von, bis, document.getElementById("exportFrei").checked);
+  ladeCsvHerunter(zeilen, "spieltage_" + vonText + "_bis_" + bisText + ".csv");
 }
 
 /* Konflikte werden über einen konkreten Zeitraum geprüft, nicht mehr über
@@ -1514,7 +1615,26 @@ function doppelterNameBestaetigt(system, eigeneId){
   return false;
 }
 
-document.getElementById("btnExport").addEventListener("click", exportiereCSV);
+document.getElementById("btnExport").addEventListener("click", () => {
+  const panel = document.getElementById("exportPanel");
+  const btn = document.getElementById("btnExport");
+  const oeffnen = panel.hidden;
+
+  panel.hidden = !oeffnen;
+  btn.classList.toggle("aktiv", oeffnen);
+  btn.setAttribute("aria-expanded", oeffnen ? "true" : "false");
+  if (!oeffnen) return;
+
+  // Vorbelegung: die nächsten vier Wochen. Eigene Eingaben bleiben stehen.
+  const von = document.getElementById("exportVon");
+  const bis = document.getElementById("exportBis");
+  if (!von.value) von.value = alsIsoDatum(heuteUTC());
+  if (!bis.value) bis.value = alsIsoDatum(heuteUTC() + 27 * TAG_MS);
+  zeigeExportFehler("");
+  von.focus();
+});
+
+document.getElementById("btnExportStarten").addEventListener("click", exportiereZeitraum);
 
 /* ============================================================
    FREISCHALTUNG

@@ -66,8 +66,9 @@ Dabei gibt das Datum den Wochentag vor: Ein Termin am Samstag kann keinen
 Mittwoch-Slot belegen. Das Formular weist eine solche Kombination ab und nennt
 den Wochentag des gewählten Datums.
 
-Ist der Termin vorbei, verschwindet er aus der Wochenansicht und aus dem
-CSV-Export – eine Wochenvorlage soll nicht zeigen, was nicht mehr ansteht.
+Ist der Termin vorbei, verschwindet er aus der Wochenansicht – eine
+Wochenvorlage soll nicht zeigen, was nicht mehr ansteht. Im CSV-Export
+erscheint er, wenn der gewählte Zeitraum sein Datum einschließt.
 In der Regel-Liste unter "Bearbeiten" bleibt er sichtbar und ist mit "vorbei"
 gekennzeichnet, damit er nicht unbemerkt verschwindet und gelöscht werden kann.
 Ein Datum in der Vergangenheit lässt sich eintragen, die Seite fragt aber
@@ -226,12 +227,38 @@ Keine `<table>`-Elemente: Tabellen sind auf dem Handy schlecht lesbar. Unter
 380 px Breite stapeln sich Tag, Zeit und Inhalt untereinander. Es gibt eine
 Druckansicht (`@media print`) für den Aushang am Vereinsbrett.
 
+## CSV-Export
+
+"CSV exportieren" öffnet ein Feld mit **Von** und **Bis** (vorbelegt: heute bis
+in vier Wochen). Die Datei ist eine Tagesübersicht: je Tag, je Slot, je Runde
+eine Zeile, nach Datum sortiert, mit den Spalten Datum, Wochentag, Zeit,
+System, Rhythmus und Hinweis.
+
+- Abgesagte Termine stehen mit Hinweis "fällt aus" drin – so bleibt sichtbar,
+  dass dort sonst gespielt würde.
+- Treffen an einem Tag im selben Slot zwei Runden aufeinander, die beide
+  stattfinden, steht bei beiden "Konflikt". Fällt eine davon aus, ist es kein
+  Konflikt.
+- Mit "Freie Slots mit aufführen" bekommt jeder unbelegte Slot eine Zeile
+  "frei" – auch einer, in dem alle Runden des Tages ausfallen.
+- Runden mit langem Takt ohne Startdatum lassen sich keinem Tag zuordnen. Sie
+  stehen einmal am Ende, ohne Datum, mit "Termine unbekannt".
+
+Der Zeitraum ist auf 366 Tage begrenzt. Dateiname:
+`spieltage_<von>_bis_<bis>.csv`. Die Datei beginnt mit einer UTF-8-Kennung und
+trennt mit Semikolon, damit Excel sie auf deutschen Systemen direkt richtig
+öffnet.
+
+Im Artefakt (der Vorschau in Claude) löst der Knopf keinen Download aus – der
+Viewer blockiert Downloads. Auf der echten Seite funktioniert er.
+
 ## Offene Punkte
 
 - **Kein Backup.** Alle Daten liegen an einer Stelle. "Alle Regeln löschen"
   trifft mit zwei Klicks den Spielplan für alle, ohne Rückholmöglichkeit. Der
-  kostenlose Firebase-Tarif kennt keine automatischen Sicherungen; bis dahin ist
-  der CSV-Export die einzige Sicherung, und die muss jemand von Hand anstoßen.
+  kostenlose Firebase-Tarif kennt keine automatischen Sicherungen. Der
+  CSV-Export ist **keine** Sicherung: Er enthält Termine, nicht die Regeln, und
+  lässt sich nicht wieder einlesen.
 - Die Datenbankregeln prüfen nicht, ob eingehende Daten die richtige Form haben.
   Unkritisch, solange nur Leute mit Passwort schreiben.
 - Es ist nicht nachvollziehbar, wer wann was geändert hat.
