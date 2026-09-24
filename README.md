@@ -53,16 +53,31 @@ Eine Regel belegt einen oder mehrere Slots:
 }
 ```
 
-Mögliche Rhythmen: `jede_woche`, `gerade_wochen`, `ungerade_wochen`,
-`alle_2_wochen`, `alle_4_wochen`, `alle_8_wochen`, `einmalig`.
+Wählbare Rhythmen: `jede_woche`, `alle_2_wochen`, `alle_4_wochen`,
+`alle_8_wochen`, `einmalig`.
 
-**"Gerade Wochen" ist nicht dasselbe wie "alle 2 Wochen".** Gerade und
-ungerade hängen an der Kalenderwochen-Nummer. Nach einem Jahr mit 53 Wochen
-folgt auf KW 53 wieder KW 1 – zwei ungerade Wochen hintereinander. 2026 ist so
-ein Jahr: Eine ungerade Runde spielt am 02.01.2027 (KW 53) *und* am 09.01.2027
-(KW 1), eine gerade pausiert vom 26.12.2026 bis 16.01.2027. Wer "immer im
-Wechsel" meint, nimmt `alle_2_wochen` mit Startdatum; das zählt vom Datum aus
-und kommt nie aus dem Takt.
+### Nicht mehr wählbar: gerade und ungerade Wochen
+
+`gerade_wochen` und `ungerade_wochen` stehen nicht mehr im Formular. Sie hingen
+an der Kalenderwochen-Nummer, und nach einem Jahr mit 53 Wochen folgt auf KW 53
+wieder KW 1 – zwei ungerade Wochen hintereinander. 2026 ist so ein Jahr: Eine
+ungerade Runde hätte am 02.01.2027 (KW 53) *und* am 09.01.2027 (KW 1) gespielt,
+eine gerade vom 26.12.2026 bis 16.01.2027 pausiert. `alle_2_wochen` zählt
+stattdessen vom Startdatum aus und kommt nie aus dem Takt.
+
+**Bestehende Runden mit diesen Rhythmen bleiben erhalten** und werden weiter
+richtig berechnet (`VERALTETE_RHYTHMEN`). Würde die Seite sie verwerfen, wären
+sie in der Datenbank zwar noch da, auf der Seite aber unsichtbar. In der
+Regel-Liste tragen sie den Zusatz "bitte auf ‚alle 2 Wochen' umstellen". Beim
+Bearbeiten ist dann kein Rhythmus vorausgewählt – gespeichert werden kann erst
+nach einer Wahl –, und das Startdatum ist mit dem nächsten Termin nach dem alten
+Takt vorbelegt. Mit "alle 2 Wochen" läuft die Runde so im selben Wechsel weiter,
+Ausfälle bleiben erhalten. Erst jenseits des nächsten 53-Wochen-Jahres weichen
+die Termine vom alten Verhalten ab – und genau das ist der Zweck.
+
+Sind keine solchen Runden mehr in der Datenbank, können `VERALTETE_RHYTHMEN`,
+die beiden Einträge in `SUFFIX` und die gerade/ungerade-Zweige in `terminAb`
+und `grundTakt` entfernt werden.
 
 ### Einzeltermine
 
@@ -115,8 +130,8 @@ Leser die wichtigere Information als das Datum danach.
 läuft: Vor diesem Tag gibt es keinen Termin, und die Konfliktprüfung zählt die
 Wochen davor nicht mit. Damit lässt sich "ab Oktober jeden Samstag" abbilden.
 
-Ohne Startdatum läuft eine Runde von Anfang an – für die wöchentlichen und die
-geraden/ungeraden Rhythmen ist das Feld also rein optional.
+Ohne Startdatum läuft eine Runde von Anfang an – für wöchentliche Runden ist das
+Feld also rein optional.
 
 ### Zusätzliche Rolle bei den langen Takten
 

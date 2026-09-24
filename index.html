@@ -370,8 +370,6 @@
         <label id="lblRhythmus">Rhythmus</label>
         <div class="checkbox-grid" id="neuRhythmusGroup" role="radiogroup" aria-labelledby="lblRhythmus">
           <label class="chk"><input type="radio" name="rhythmus" value="jede_woche" checked>jede Woche</label>
-          <label class="chk"><input type="radio" name="rhythmus" value="gerade_wochen">nur gerade Wochen</label>
-          <label class="chk"><input type="radio" name="rhythmus" value="ungerade_wochen">nur ungerade Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_2_wochen">alle 2 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_4_wochen">alle 4 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_8_wochen">alle 8 Wochen</label>
@@ -590,6 +588,12 @@ const SUFFIX = {
    laufen sie ohne Sprung über jeden Jahreswechsel – auch nach einem
    Jahr mit 53 Kalenderwochen. */
 const TAKT_WOCHEN = { alle_2_wochen: 2, alle_4_wochen: 4, alle_8_wochen: 8 };
+
+/* Nicht mehr wählbar – "gerade/ungerade" hängt an der Kalenderwochen-
+   Nummer und kommt nach Jahren mit 53 Wochen aus dem Wechsel. Bestehende
+   Runden damit laufen aber weiter und werden richtig berechnet, damit
+   keine davon verschwindet; beim Bearbeiten werden sie umgestellt. */
+const VERALTETE_RHYTHMEN = new Set(["gerade_wochen", "ungerade_wochen"]);
 
 function taktWochen(rhythmus){
   return Object.prototype.hasOwnProperty.call(TAKT_WOCHEN, rhythmus) ? TAKT_WOCHEN[rhythmus] : null;
@@ -1227,7 +1231,8 @@ function regelBeschreibung(regel){
   }
 
   const grund = slotText + " · " + SUFFIX[regel.rhythmus] +
-    (datum !== null ? " (ab " + formatDatum(datum) + ")" : "");
+    (datum !== null ? " (ab " + formatDatum(datum) + ")" : "") +
+    (VERALTETE_RHYTHMEN.has(regel.rhythmus) ? " – bitte auf „alle 2 Wochen“ umstellen" : "");
 
   const kuenftige = Array.from(ausfallMenge(regel))
     .map(ausIsoDatum)
@@ -1403,13 +1408,14 @@ function baueAusfallAuswahl(){
   container.textContent = "";
 
   const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
-  const rhythmus = gewaehlt ? gewaehlt.value : "jede_woche";
   const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
 
-  if (bearbeiteId === null || rhythmus === "einmalig" || slots.length === 0){
+  // Ohne gewählten Rhythmus (alte Runde, noch nicht umgestellt) gibt es keinen Takt.
+  if (bearbeiteId === null || !gewaehlt || gewaehlt.value === "einmalig" || slots.length === 0){
     feld.style.display = "none";
     return;
   }
+  const rhythmus = gewaehlt.value;
 
   const entwurf = { rhythmus: rhythmus, startDatum: document.getElementById("neuStartDatum").value.trim() };
   const termine = [];
@@ -1498,12 +1504,26 @@ function starteBearbeiten(regel){
     cb.checked = (regel.slots || []).includes(cb.value);
   });
 
+  // Erst alle abwählen – sonst bliebe bei einem nicht mehr wählbaren
+  // Rhythmus der zuletzt gewählte stehen und würde mitgespeichert.
+  document.querySelectorAll('#neuRhythmusGroup input').forEach(r => { r.checked = false; });
   const radio = document.querySelector('#neuRhythmusGroup input[value="' + regel.rhythmus + '"]');
   if (radio) radio.checked = true;
 
+  let hinweis = "";
+  if (VERALTETE_RHYTHMEN.has(regel.rhythmus)){
+    /* Nächsten Termin nach dem alten Takt als Startdatum vorschlagen:
+       Mit "alle 2 Wochen" läuft die Runde dann im selben Wechsel weiter. */
+    const slot = SLOT_NACH_TYP.get((regel.slots || [])[0]);
+    const termin = slot ? rohtermin(regel, slot) : null;
+    if (termin !== null) document.getElementById("neuStartDatum").value = alsIsoDatum(termin);
+    hinweis = "Diese Runde läuft noch nach " + SUFFIX[regel.rhythmus] + ". Das gibt es nicht mehr – " +
+      "bitte einen Rhythmus wählen. Für denselben Wechsel: „alle 2 Wochen“, das Startdatum ist schon passend eingetragen.";
+  }
+
   aktualisiereStartDatumFeld();
   baueAusfallAuswahl();
-  zeigeFormFehler("");
+  zeigeFormFehler(hinweis);
   setzeFormularModus();
   renderVerwaltung();
   document.getElementById("regelFormular").scrollIntoView({ block: "nearest" });
@@ -1518,7 +1538,11 @@ function formularLesen(){
   const system = systemFeld.value.trim();
   const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
   const rhythmusInput = document.querySelector('#neuRhythmusGroup input:checked');
-  const rhythmus = rhythmusInput ? rhythmusInput.value : "jede_woche";
+  if (!rhythmusInput){
+    zeigeFormFehler("Bitte einen Rhythmus wählen.");
+    return null;
+  }
+  const rhythmus = rhythmusInput.value;
   const farbe = document.getElementById("neuFarbe").value;
   const startDatumRoh = startDatumFeld.value.trim();
 
