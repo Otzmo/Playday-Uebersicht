@@ -372,6 +372,7 @@
           <label class="chk"><input type="radio" name="rhythmus" value="jede_woche" checked>jede Woche</label>
           <label class="chk"><input type="radio" name="rhythmus" value="gerade_wochen">nur gerade Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="ungerade_wochen">nur ungerade Wochen</label>
+          <label class="chk"><input type="radio" name="rhythmus" value="alle_2_wochen">alle 2 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_4_wochen">alle 4 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="alle_8_wochen">alle 8 Wochen</label>
           <label class="chk"><input type="radio" name="rhythmus" value="einmalig">nur einmal</label>
@@ -415,7 +416,7 @@
    Einträge hinein, z. B.:
    { id: "kill-team", system: "Kill Team", farbe: "#8E7CC3",
      slots: ["samstag_vormittag"], rhythmus: "jede_woche" }
-   Für "alle_4_wochen" / "alle_8_wochen" zusätzlich
+   Für "alle_2_wochen", "alle_4_wochen" und "alle_8_wochen" zusätzlich
    startDatum: "JJJJ-MM-TT" – der erste Termin der Runde.
    ============================================================ */
 const STANDARD_REGELN = [];
@@ -578,15 +579,26 @@ const SUFFIX = {
   jede_woche: "jede Woche",
   gerade_wochen: "nur gerade Wochen",
   ungerade_wochen: "nur ungerade Wochen",
+  alle_2_wochen: "alle 2 Wochen",
   alle_4_wochen: "alle 4 Wochen",
   alle_8_wochen: "alle 8 Wochen",
   einmalig: "einmaliger Termin"
 };
 
+/* Rhythmen mit festem Wochentakt ab einem Startdatum. Anders als
+   "gerade/ungerade Wochen", die an der Kalenderwochen-Nummer hängen,
+   laufen sie ohne Sprung über jeden Jahreswechsel – auch nach einem
+   Jahr mit 53 Kalenderwochen. */
+const TAKT_WOCHEN = { alle_2_wochen: 2, alle_4_wochen: 4, alle_8_wochen: 8 };
+
+function taktWochen(rhythmus){
+  return Object.prototype.hasOwnProperty.call(TAKT_WOCHEN, rhythmus) ? TAKT_WOCHEN[rhythmus] : null;
+}
+
 /* Rhythmen, die ohne Datum nicht auskommen. Bei "einmalig" ist das
    Datum der Termin selbst, bei den langen Takten der Ankerpunkt. */
 function brauchtDatum(rhythmus){
-  return rhythmus === "einmalig" || rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen";
+  return rhythmus === "einmalig" || taktWochen(rhythmus) !== null;
 }
 
 /* Erst hier, weil die Validierung in ladeRegeln SUFFIX braucht. */
@@ -772,11 +784,11 @@ function terminAb(regel, slot, ab){
     return kandidat;
   }
 
-  if (regel.rhythmus === "alle_4_wochen" || regel.rhythmus === "alle_8_wochen"){
+  const n = taktWochen(regel.rhythmus);
+  if (n !== null){
     const anker = ankerMontag(regel);
     if (anker === null) return null;
 
-    const n = regel.rhythmus === "alle_4_wochen" ? 4 : 8;
     const referenz = anker + (wochentagIso - 1) * TAG_MS;
 
     // Liegt der erste Termin noch in der Zukunft, ist er die Antwort.
@@ -953,10 +965,12 @@ function grundTakt(regel){
     return montag => montag === woche;
   }
 
+  const n = taktWochen(regel.rhythmus);
+  if (n === null) return () => false;
+
   const anker = ankerMontag(regel);
   if (anker === null) return () => null;
 
-  const n = regel.rhythmus === "alle_4_wochen" ? 4 : 8;
   return montag => ((Math.round((montag - anker) / WOCHE_MS) % n) + n) % n === 0;
 }
 
@@ -988,9 +1002,7 @@ function paarStatus(a, b, wochentagIso){
      Fällt die wöchentliche gelegentlich aus, gilt das nicht mehr
      pauschal; dann entscheidet der Vergleich. */
   const laeuftImmer = regel => regel.rhythmus === "jede_woche" && ausfallMenge(regel).size === 0;
-  const phaseUnbekannt = regel =>
-    (regel.rhythmus === "alle_4_wochen" || regel.rhythmus === "alle_8_wochen") &&
-    ankerMontag(regel) === null;
+  const phaseUnbekannt = regel => taktWochen(regel.rhythmus) !== null && ankerMontag(regel) === null;
 
   if (laeuftImmer(a) && phaseUnbekannt(b)) return "konflikt";
   if (laeuftImmer(b) && phaseUnbekannt(a)) return "konflikt";
@@ -1352,7 +1364,7 @@ function aktualisiereStartDatumFeld(){
   let text;
   if (rhythmus === "einmalig"){
     text = "Datum des Termins – bestimmt zugleich den Wochentag";
-  } else if (rhythmus === "alle_4_wochen" || rhythmus === "alle_8_wochen"){
+  } else if (taktWochen(rhythmus) !== null){
     text = "Erster Termin (optional – legt fest, ab wann die Runde läuft, " +
       "und macht aus einem \"möglichen\" Konflikt einen eindeutigen)";
   } else {

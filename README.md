@@ -54,7 +54,15 @@ Eine Regel belegt einen oder mehrere Slots:
 ```
 
 Mögliche Rhythmen: `jede_woche`, `gerade_wochen`, `ungerade_wochen`,
-`alle_4_wochen`, `alle_8_wochen`, `einmalig`.
+`alle_2_wochen`, `alle_4_wochen`, `alle_8_wochen`, `einmalig`.
+
+**"Gerade Wochen" ist nicht dasselbe wie "alle 2 Wochen".** Gerade und
+ungerade hängen an der Kalenderwochen-Nummer. Nach einem Jahr mit 53 Wochen
+folgt auf KW 53 wieder KW 1 – zwei ungerade Wochen hintereinander. 2026 ist so
+ein Jahr: Eine ungerade Runde spielt am 02.01.2027 (KW 53) *und* am 09.01.2027
+(KW 1), eine gerade pausiert vom 26.12.2026 bis 16.01.2027. Wer "immer im
+Wechsel" meint, nimmt `alle_2_wochen` mit Startdatum; das zählt vom Datum aus
+und kommt nie aus dem Takt.
 
 ### Einzeltermine
 
@@ -112,13 +120,17 @@ geraden/ungeraden Rhythmen ist das Feld also rein optional.
 
 ### Zusätzliche Rolle bei den langen Takten
 
-Bei den 4- und 8-Wochen-Rhythmen ist `startDatum` nicht nur Beginn, sondern auch
-Taktgeber, und benennt einen echten
+Bei den 2-, 4- und 8-Wochen-Rhythmen ist `startDatum` nicht nur Beginn, sondern
+auch Taktgeber, und benennt einen echten
 Termin der Runde. Der Takt wird von dort aus absolut weitergerechnet, nicht über
 Kalenderwochen-Nummern – sonst würde er am Jahreswechsel springen, weil ein Jahr
 auch 53 Wochen haben kann. Fehlt das Startdatum, lässt sich weder der nächste
 Termin berechnen noch ein Konflikt sicher feststellen; die Seite schreibt dann
 "Datum unbekannt" beziehungsweise "möglicher Konflikt".
+
+Die Takte stehen im Code an einer Stelle, in `TAKT_WOCHEN`
+(`{ alle_2_wochen: 2, alle_4_wochen: 4, alle_8_wochen: 8 }`). Ein weiterer
+Takt ist dort ein Eintrag, dazu ein Text in `SUFFIX` und ein Knopf im Formular.
 
 Konflikte werden nicht über Perioden-Kongruenz bestimmt, sondern indem für die
 nächsten 104 Wochen Woche für Woche verglichen wird, ob zwei Regeln im selben
