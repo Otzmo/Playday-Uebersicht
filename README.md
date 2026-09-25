@@ -294,8 +294,9 @@ Die Datei wird in der Seite selbst erzeugt (`xlsxDatei()`, `zipArchiv()`),
 ohne Bibliothek: die gängigen bringen rund ein Megabyte mit und hängen an einem
 fremden Server. Eine .xlsx ist ein ZIP mit einigen XML-Dateien; das ZIP wird
 unkomprimiert geschrieben, dafür reicht eine CRC-32-Prüfsumme. Geprüft mit
-openpyxl, ExcelJS und SheetJS. Wer daran etwas ändert: Excel ist bei der
-Reihenfolge der XML-Elemente streng und meldet sonst eine "beschädigte" Datei.
+openpyxl, ExcelJS und SheetJS; Microsoft Excel öffnet sie ohne Meldung. Wer
+daran etwas ändert: Excel ist bei der Reihenfolge der XML-Elemente streng und
+meldet sonst eine "beschädigte" Datei – danach also wieder in Excel prüfen.
 
 **Druckansicht / PDF**: ersetzt die Seite durch ein helles Blatt, gegliedert
 nach Kalenderwochen und Tagen, mit Farbpunkt je System, Zählung oben
