@@ -127,11 +127,12 @@
 
   .slot.konflikt{ background: var(--conflict-bg); border-color: var(--conflict); }
   .slot.konflikt .zeit{ color: #D69890; }
-  .slot.konflikt .hinweis{ color: var(--conflict); font-size: 12px; margin-top: 4px; }
+  .slot .hinweis{ font-size: 12px; margin-top: 4px; }
+  .slot.konflikt .hinweis{ color: var(--conflict); }
 
   .slot.moeglich{ background: var(--moeglich-bg); border-color: var(--moeglich); }
   .slot.moeglich .zeit{ color: #D8B27E; }
-  .slot.moeglich .hinweis{ color: var(--moeglich); font-size: 12px; margin-top: 4px; }
+  .slot.moeglich .hinweis{ color: var(--moeglich); }
 
   .system-chip{ display:inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink:0; }
 
@@ -150,7 +151,6 @@
     background: var(--panel); border: 1px solid var(--panel-line);
     border-radius: 8px; margin-bottom: 8px; font-size: 13.5px;
   }
-  .regel-zeile .system-chip{ flex-shrink:0; }
   .regel-zeile .info{ flex: 1; }
   .regel-zeile .info .name{ font-weight: 500; }
   .regel-zeile .info .details{ color: var(--text-muted); font-size: 12px; margin-top: 1px; }
@@ -187,7 +187,7 @@
     margin: 0 0 12px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5;
   }
 
-  .abmelden{
+  .abmelden, .zuruecksetzen{
     margin-top: 14px; background: transparent; color: var(--text-muted);
     font-size: 12px; text-decoration: underline; padding: 4px 0;
   }
@@ -226,11 +226,6 @@
     margin-top: 8px; width: 100%; background: transparent; color: var(--text-muted);
     border: 1px solid var(--panel-line);
     padding: 9px; border-radius: 8px; font-size: 13px;
-  }
-
-  .zuruecksetzen{
-    margin-top: 14px; background: transparent; color: var(--text-muted);
-    font-size: 12px; text-decoration: underline; padding: 4px 0;
   }
 
   .form-fehler{
@@ -366,7 +361,7 @@
   </header>
 
   <!-- Nutzt die Formularstile von .neue-regel. -->
-  <div class="neue-regel export-panel" id="exportPanel" hidden>
+  <div class="neue-regel" id="exportPanel" hidden>
     <p class="form-titel">Tagesübersicht exportieren</p>
     <p class="form-fehler" id="exportFehler" role="alert"></p>
     <div class="zeile-2">
@@ -449,11 +444,11 @@
           <label class="chk"><input type="radio" name="rhythmus" value="einmalig">nur einmal</label>
         </div>
       </div>
-      <div class="feld" style="flex: 0 0 44px;">
+      <div class="feld">
         <label for="neuFarbe">Farbe</label>
-        <input type="color" id="neuFarbe" value="#7C9885">
+        <input type="color" id="neuFarbe">
       </div>
-      <div class="feld" id="feldStartDatum">
+      <div class="feld">
         <label for="neuStartDatum" id="labelStartDatum">Erster Termin – ab hier läuft die Runde</label>
         <input type="date" id="neuStartDatum" min="2000-01-01" max="2100-12-31" aria-required="true">
       </div>
@@ -652,8 +647,50 @@ function speichereRegeln(regeln){
   merkeServerStand(regeln);
 }
 
+/* Übernimmt eine Änderung aus der Bedienung: festhalten und neu zeichnen. */
+function setzeRegeln(regeln){
+  REGELN = regeln;
+  speichereRegeln(REGELN);
+  renderWoche();
+  renderVerwaltung();
+}
+
+const STANDARD_FARBE = "#7C9885";
+
 function sichereFarbe(farbe){
-  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(farbe)) ? farbe : "#7C9885";
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(farbe)) ? farbe : STANDARD_FARBE;
+}
+
+/* Alle Ansichten bauen ihr DOM hierüber – Text kommt so immer über
+   textContent hinein, nie über innerHTML, weil Systemnamen Freitext sind. */
+function element(tag, klasse, text){
+  const el = document.createElement(tag);
+  if (klasse) el.className = klasse;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function farbChip(farbe){
+  const chip = element("span", "system-chip");
+  chip.style.background = sichereFarbe(farbe);
+  return chip;
+}
+
+/* Kachel mit Kästchen für die Slot- und die Ausfall-Auswahl im Formular. */
+function checkKachel(wert, text){
+  const kachel = element("label", "chk");
+  const box = element("input");
+  box.type = "checkbox";
+  box.value = wert;
+  kachel.appendChild(box);
+  kachel.appendChild(document.createTextNode(text));
+  return { kachel, box };
+}
+
+function zeigeFehler(id, text){
+  const el = document.getElementById(id);
+  el.textContent = text || "";
+  el.classList.toggle("aktiv", !!text);
 }
 
 const SUFFIX = {
@@ -736,7 +773,6 @@ const SLOTS_PRO_TAG = new Map();
 TAGE.forEach(tag => {
   const angereichert = tag.slots.map(slot => ({
     typ: slot.typ,
-    von: slot.von,
     bis: slot.bis,
     tag: tag,
     zeit: slot.von + "–" + slot.bis,
@@ -768,6 +804,11 @@ function heuteUTC(){
 function isoWochentag(ts){
   const d = new Date(ts).getUTCDay(); // 0=So..6=Sa
   return d === 0 ? 7 : d;
+}
+
+/* Eintrag aus TAGE für einen Tag – TAGE ist nach iso 1–7 geordnet. */
+function tagVon(ts){
+  return TAGE[isoWochentag(ts) - 1];
 }
 
 function isoWoche(ts){
@@ -823,6 +864,13 @@ function ankerMontag(regel){
 /* Die ausgefallenen Termine einer Regel als Menge von ISO-Datumswerten. */
 function ausfallMenge(regel){
   return new Set(Array.isArray(regel.ausfaelle) ? regel.ausfaelle : []);
+}
+
+/* Die gültigen Ausfall-Daten ab heute als Zeitstempel. Vergangene zählen
+   nirgends mehr – weder in der Anzeige noch beim Speichern. */
+function kuenftigeAusfaelle(isoWerte){
+  const heute = heuteUTC();
+  return Array.from(isoWerte).map(ausIsoDatum).filter(ts => ts !== null && ts >= heute);
 }
 
 /* Frühester Tag, ab dem gesucht wird: heute – oder morgen, wenn der Slot
@@ -913,6 +961,10 @@ function formatDatum(ts){
   return d.getUTCDate().toString().padStart(2, "0") + "." + (d.getUTCMonth() + 1).toString().padStart(2, "0") + "." + d.getUTCFullYear();
 }
 
+function zeitraumText(von, bis){
+  return formatDatum(von) + " – " + formatDatum(bis);
+}
+
 function csvZelle(text){
   let t = String(text);
 
@@ -950,17 +1002,19 @@ const EXPORT_MAX_TAGE = 366;
 function tagesEintraege(von, bis, mitFrei){
   const eintraege = [];
 
+  // Welche Regeln in welchem Slot stehen, ändert sich von Tag zu Tag nicht.
+  const regelnImSlot = new Map(ALLE_SLOTS.map(slot => [slot.typ,
+    REGELN.filter(regel => (regel.slots || []).includes(slot.typ) && !terminUnbekannt(regel))]));
+
   for (let tag = von; tag <= bis; tag += TAG_MS){
-    const wochentag = TAGE.find(eintrag => eintrag.iso === isoWochentag(tag));
+    const wochentag = tagVon(tag);
 
     SLOTS_PRO_TAG.get(wochentag).forEach(slot => {
       const hier = [];
-      REGELN
-        .filter(regel => (regel.slots || []).includes(slot.typ) && !terminUnbekannt(regel))
-        .forEach(regel => {
-          const stand = terminAmTag(regel, slot, tag);
-          if (stand !== "nein") hier.push({ regel, stand });
-        });
+      regelnImSlot.get(slot.typ).forEach(regel => {
+        const stand = terminAmTag(regel, slot, tag);
+        if (stand !== "nein") hier.push({ regel, stand });
+      });
 
       const stattfindend = hier.filter(eintrag => eintrag.stand === "ja").length;
 
@@ -1301,22 +1355,13 @@ function xlsxDatei(eintraege, titel){
    bzw. "Als PDF speichern" übernimmt der Browser. Aufgebaut nur mit
    textContent, weil Systemnamen Freitext sind.
    ============================================================ */
-function element(tag, klasse, text){
-  const el = document.createElement(tag);
-  if (klasse) el.className = klasse;
-  if (text !== undefined) el.textContent = text;
-  return el;
-}
-
 function druckEintrag(eintrag){
   const zeile = element("div", "druck-eintrag " + eintrag.art);
   zeile.appendChild(element("span", "zeit", eintrag.slot.zeit));
 
   const system = element("span", "system");
   if (eintrag.regel){
-    const chip = element("span", "system-chip");
-    chip.style.background = sichereFarbe(eintrag.regel.farbe);
-    system.appendChild(chip);
+    system.appendChild(farbChip(eintrag.regel.farbe));
     system.appendChild(document.createTextNode(eintrag.regel.system));
   } else {
     system.textContent = "frei";
@@ -1337,29 +1382,38 @@ function zeigeDruckansicht(eintraege, von, bis){
   const kopf = element("div", "druck-kopf");
   kopf.appendChild(element("p", "club", "Privateer-Poza-Boyz e.V."));
   kopf.appendChild(element("h2", "", "Spieltage"));
-  kopf.appendChild(element("p", "zeitraum", formatDatum(von) + " – " + formatDatum(bis)));
+  kopf.appendChild(element("p", "zeitraum", zeitraumText(von, bis)));
 
-  const zaehle = art => eintraege.filter(e => e.art === art).length;
+  // Ein Durchlauf: Anzahl je Art und die Einträge je Tag.
+  const anzahl = { termin: 0, konflikt: 0, ausfall: 0 };
+  const nachTag = new Map();
+  eintraege.forEach(e => {
+    if (e.art in anzahl) anzahl[e.art]++;
+    if (e.tag === null) return;
+    if (!nachTag.has(e.tag)) nachTag.set(e.tag, []);
+    nachTag.get(e.tag).push(e);
+  });
+
   const mehrzahl = (anzahl, eins, mehr) => anzahl + " " + (anzahl === 1 ? eins : mehr);
   // Ein Konflikt ist ein Slot an einem Tag, nicht jede beteiligte Runde.
   const konflikte = new Set(eintraege.filter(e => e.art === "konflikt").map(e => e.tag + e.slot.typ)).size;
-  const teile = [mehrzahl(zaehle("termin") + zaehle("konflikt"), "Termin", "Termine")];
+  const teile = [mehrzahl(anzahl.termin + anzahl.konflikt, "Termin", "Termine")];
   if (konflikte) teile.push(mehrzahl(konflikte, "Konflikt", "Konflikte"));
-  if (zaehle("ausfall")) teile.push(mehrzahl(zaehle("ausfall"), "Ausfall", "Ausfälle"));
+  if (anzahl.ausfall) teile.push(mehrzahl(anzahl.ausfall, "Ausfall", "Ausfälle"));
   kopf.appendChild(element("p", "stand", teile.join(" · ") + " · Stand " + formatDatum(heuteUTC())));
   blatt.appendChild(kopf);
 
   // Jede Woche des Zeitraums bekommt eine Überschrift, auch eine leere –
   // sonst fällt auf dem Aushang nicht auf, dass dort nichts stattfindet.
   for (let montag = montagDerWoche(von); montag <= bis; montag += WOCHE_MS){
+    const erster = Math.max(montag, von), letzter = Math.min(montag + 6 * TAG_MS, bis);
     const woche = element("section", "druck-woche");
-    woche.appendChild(element("h3", "druck-woche-titel",
-      "KW " + isoWoche(montag) + " · " + formatDatum(Math.max(montag, von)) + " – " + formatDatum(Math.min(montag + 6 * TAG_MS, bis))));
+    woche.appendChild(element("h3", "druck-woche-titel", "KW " + isoWoche(montag) + " · " + zeitraumText(erster, letzter)));
 
     let tageMitEintrag = 0;
-    for (let tag = Math.max(montag, von); tag <= Math.min(montag + 6 * TAG_MS, bis); tag += TAG_MS){
-      const amTag = eintraege.filter(e => e.tag === tag);
-      if (!amTag.length) continue;
+    for (let tag = erster; tag <= letzter; tag += TAG_MS){
+      const amTag = nachTag.get(tag);
+      if (!amTag) continue;
       tageMitEintrag++;
 
       const zeile = element("div", "druck-tag");
@@ -1407,12 +1461,6 @@ function schliesseDruckansicht(){
   document.getElementById("btnExportStarten").focus();
 }
 
-function zeigeExportFehler(text){
-  const el = document.getElementById("exportFehler");
-  el.textContent = text || "";
-  el.classList.toggle("aktiv", !!text);
-}
-
 function exportiereZeitraum(){
   const vonText = document.getElementById("exportVon").value;
   const bisText = document.getElementById("exportBis").value;
@@ -1420,26 +1468,26 @@ function exportiereZeitraum(){
   const bis = ausIsoDatum(bisText);
 
   if (von === null || bis === null){
-    zeigeExportFehler("Bitte bei „Von“ und „Bis“ je ein Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
+    zeigeFehler("exportFehler", "Bitte bei „Von“ und „Bis“ je ein Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen.");
     return;
   }
   if (bis < von){
-    zeigeExportFehler("„Bis“ muss am selben Tag wie „Von“ oder danach liegen.");
+    zeigeFehler("exportFehler", "„Bis“ muss am selben Tag wie „Von“ oder danach liegen.");
     return;
   }
   if ((bis - von) / TAG_MS + 1 > EXPORT_MAX_TAGE){
-    zeigeExportFehler("Der Zeitraum darf höchstens " + EXPORT_MAX_TAGE + " Tage umfassen.");
+    zeigeFehler("exportFehler", "Der Zeitraum darf höchstens " + EXPORT_MAX_TAGE + " Tage umfassen.");
     return;
   }
 
-  zeigeExportFehler("");
+  zeigeFehler("exportFehler", "");
   const eintraege = tagesEintraege(von, bis, document.getElementById("exportFrei").checked);
   const format = document.querySelector('input[name="exportFormat"]:checked').value;
   const dateiname = "spieltage_" + vonText + "_bis_" + bisText;
 
   if (format === "druck") zeigeDruckansicht(eintraege, von, bis);
   else if (format === "csv") ladeCsvHerunter(eintraege, dateiname + ".csv");
-  else ladeDateiHerunter(xlsxDatei(eintraege, "Spieltage " + formatDatum(von) + " – " + formatDatum(bis)), dateiname + ".xlsx");
+  else ladeDateiHerunter(xlsxDatei(eintraege, "Spieltage " + zeitraumText(von, bis)), dateiname + ".xlsx");
 }
 
 /* Konflikte werden über einen konkreten Zeitraum geprüft, nicht mehr über
@@ -1490,11 +1538,18 @@ function wochenTest(regel, wochentagIso){
 
     const laeuft = takt(montag);
     if (laeuft === false) return false;
-    return ausfaelle.has(alsIsoDatum(datum)) ? false : laeuft;
+    return ausfaelle.size && ausfaelle.has(alsIsoDatum(datum)) ? false : laeuft;
   };
 }
 
-function paarStatus(a, b, wochentagIso){
+/* Die Antworten des Wochentests für den ganzen Horizont, je Regel einmal
+   berechnet statt für jedes Paar neu. */
+function wochenFolge(regel, wochentagIso, start){
+  const test = wochenTest(regel, wochentagIso);
+  return Array.from({ length: HORIZONT_WOCHEN }, (_, i) => test(start + i * WOCHE_MS));
+}
+
+function paarStatus(a, b, folgeA, folgeB){
   /* Der Wochenvergleich unten kann eine Regel ohne Startdatum nicht
      einordnen und käme nur auf "möglich". Läuft die andere aber
      ausnahmslos jede Woche, ist der Konflikt sicher – irgendwann greift
@@ -1507,13 +1562,10 @@ function paarStatus(a, b, wochentagIso){
   if (laeuftImmer(a) && phaseUnbekannt(b)) return "konflikt";
   if (laeuftImmer(b) && phaseUnbekannt(a)) return "konflikt";
 
-  const testA = wochenTest(a, wochentagIso), testB = wochenTest(b, wochentagIso);
-  const start = montagDerWoche(heuteUTC());
   let unsicher = false;
 
   for (let i = 0; i < HORIZONT_WOCHEN; i++){
-    const montag = start + i * WOCHE_MS;
-    const trifftA = testA(montag), trifftB = testB(montag);
+    const trifftA = folgeA[i], trifftB = folgeB[i];
     if (trifftA === true && trifftB === true) return "konflikt";
     if (trifftA !== false && trifftB !== false) unsicher = true;
   }
@@ -1527,10 +1579,14 @@ function paarStatus(a, b, wochentagIso){
 function konfliktAnalyse(treffer, wochentagIso){
   const paare = [];
   let status = null;
+  if (treffer.length < 2) return { status, paare };
+
+  const start = montagDerWoche(heuteUTC());
+  const folgen = treffer.map(regel => wochenFolge(regel, wochentagIso, start));
 
   for (let i = 0; i < treffer.length; i++){
     for (let j = i + 1; j < treffer.length; j++){
-      const einzel = paarStatus(treffer[i], treffer[j], wochentagIso);
+      const einzel = paarStatus(treffer[i], treffer[j], folgen[i], folgen[j]);
       if (!einzel) continue;
       paare.push({ status: einzel, a: treffer[i], b: treffer[j] });
       if (einzel === "konflikt") status = "konflikt";
@@ -1563,54 +1619,42 @@ function renderWoche(){
   const wocheEl = document.getElementById("woche");
   wocheEl.textContent = "";
 
-  TAGE.forEach(tag => {
-    const slotDaten = SLOTS_PRO_TAG.get(tag).map(s => ({ ...s, treffer: [] }));
-
-    REGELN.forEach(regel => {
-      (regel.slots || []).forEach(slotTyp => {
-        const ziel = slotDaten.find(s => s.typ === slotTyp);
-        if (ziel) {
-          // Ein abgelaufener Einzeltermin gehört nicht mehr in die Wochenvorlage.
-          if (regel.rhythmus === "einmalig" && naechstesDatum(regel, ziel) === null) return;
-          ziel.treffer.push(regel);
-        } else if (!SLOT_NACH_TYP.has(slotTyp)) {
-          const text = `"${regel.system}": unbekannter Slot-Typ "${slotTyp}".`;
-          if (!warnungen.includes(text)) warnungen.push(text);
-        }
-      });
+  // Einmal alle Regeln auf ihre Slots verteilen, in Reihenfolge von REGELN.
+  const trefferJeSlot = new Map(ALLE_SLOTS.map(slot => [slot.typ, []]));
+  REGELN.forEach(regel => {
+    (regel.slots || []).forEach(slotTyp => {
+      const slot = SLOT_NACH_TYP.get(slotTyp);
+      if (!slot){
+        const text = `"${regel.system}": unbekannter Slot-Typ "${slotTyp}".`;
+        if (!warnungen.includes(text)) warnungen.push(text);
+        return;
+      }
+      // Ein abgelaufener Einzeltermin gehört nicht mehr in die Wochenvorlage.
+      if (regel.rhythmus === "einmalig" && naechstesDatum(regel, slot) === null) return;
+      trefferJeSlot.get(slotTyp).push(regel);
     });
+  });
 
-    const tagEl = document.createElement("div");
-    tagEl.className = "tag";
+  TAGE.forEach(tag => {
+    const tagEl = element("div", "tag");
+    tagEl.appendChild(element("div", "tag-name", tag.name));
+    const slotsEl = element("div", "slots");
 
-    const nameEl = document.createElement("div");
-    nameEl.className = "tag-name";
-    nameEl.textContent = tag.name;
-    tagEl.appendChild(nameEl);
-
-    const slotsEl = document.createElement("div");
-    slotsEl.className = "slots";
-
-    slotDaten.forEach(slot => {
-      const analyse = konfliktAnalyse(slot.treffer, tag.iso);
+    SLOTS_PRO_TAG.get(tag).forEach(slot => {
+      const treffer = trefferJeSlot.get(slot.typ);
+      const analyse = konfliktAnalyse(treffer, tag.iso);
       const konfliktStatus = analyse.status;
-      const slotEl = document.createElement("div");
-      slotEl.className = slot.treffer.length === 0
+      const slotEl = element("div", treffer.length === 0
         ? "slot frei"
-        : "slot" + (konfliktStatus ? " " + konfliktStatus : "");
+        : "slot" + (konfliktStatus ? " " + konfliktStatus : ""));
+      slotEl.appendChild(element("span", "zeit", slot.zeit));
 
-      const zeitEl = document.createElement("span");
-      zeitEl.className = "zeit";
-      zeitEl.textContent = slot.zeit;
-      slotEl.appendChild(zeitEl);
+      const inhaltEl = element("span", "inhalt");
 
-      const inhaltEl = document.createElement("span");
-      inhaltEl.className = "inhalt";
-
-      if (slot.treffer.length === 0){
+      if (treffer.length === 0){
         inhaltEl.textContent = "frei";
       } else {
-        slot.treffer.forEach(t => {
+        treffer.forEach(t => {
           const naechstesTs = naechstesDatum(t, slot);
           const rohTs = rohtermin(t, slot);
 
@@ -1624,39 +1668,26 @@ function renderWoche(){
           let datumText;
           if (naechstesTs !== null){
             datumText = ausgefallen + ", nächster Termin " + formatDatum(naechstesTs);
-          } else if (brauchtDatum(t.rhythmus) && ausIsoDatum(t.startDatum) === null){
+          } else if (terminUnbekannt(t)){
             datumText = ", Datum unbekannt (Startdatum fehlt)";
           } else {
             datumText = ausgefallen + ", kein weiterer Termin";
           }
 
-          const eintragEl = document.createElement("span");
-          eintragEl.className = "eintrag";
-
-          const chipEl = document.createElement("span");
-          chipEl.className = "system-chip";
-          chipEl.style.background = sichereFarbe(t.farbe);
-          eintragEl.appendChild(chipEl);
-
+          const eintragEl = element("span", "eintrag");
+          eintragEl.appendChild(farbChip(t.farbe));
           eintragEl.appendChild(document.createTextNode(t.system + " "));
-
-          const suffixEl = document.createElement("span");
-          suffixEl.className = "suffix";
           /* Beim Einzeltermin wäre "einmaliger Termin, nächster Termin …"
              doppelt – dort genügt das Datum. */
-          suffixEl.textContent = t.rhythmus === "einmalig"
+          eintragEl.appendChild(element("span", "suffix", t.rhythmus === "einmalig"
             ? "· einmalig am " + formatDatum(naechstesTs)
-            : "· " + SUFFIX[t.rhythmus] + datumText;
-          eintragEl.appendChild(suffixEl);
+            : "· " + SUFFIX[t.rhythmus] + datumText));
 
           inhaltEl.appendChild(eintragEl);
         });
 
         if (konfliktStatus){
-          const hinweisEl = document.createElement("div");
-          hinweisEl.className = "hinweis";
-          hinweisEl.textContent = konfliktText(analyse, slot.treffer.length);
-          inhaltEl.appendChild(hinweisEl);
+          inhaltEl.appendChild(element("div", "hinweis", konfliktText(analyse, treffer.length)));
         }
       }
 
@@ -1674,22 +1705,12 @@ function renderWoche(){
 
   const warnBox = document.getElementById("warnungen");
   warnBox.textContent = "";
+  warnBox.classList.toggle("aktiv", warnungen.length > 0);
   if (warnungen.length){
-    warnBox.classList.add("aktiv");
-
-    const titelEl = document.createElement("strong");
-    titelEl.textContent = "Bitte prüfen";
-    warnBox.appendChild(titelEl);
-
-    const listeEl = document.createElement("ul");
-    warnungen.forEach(w => {
-      const li = document.createElement("li");
-      li.textContent = w;
-      listeEl.appendChild(li);
-    });
+    warnBox.appendChild(element("strong", "", "Bitte prüfen"));
+    const listeEl = element("ul");
+    warnungen.forEach(w => listeEl.appendChild(element("li", "", w)));
     warnBox.appendChild(listeEl);
-  } else {
-    warnBox.classList.remove("aktiv");
   }
 }
 
@@ -1731,10 +1752,7 @@ function regelBeschreibung(regel){
     (VERALTETE_RHYTHMEN.has(regel.rhythmus) ? " – bitte auf „alle 2 Wochen“ umstellen"
       : datum === null ? " – Startdatum fehlt" : "");
 
-  const kuenftige = Array.from(ausfallMenge(regel))
-    .map(ausIsoDatum)
-    .filter(ts => ts !== null && ts >= heuteUTC())
-    .sort((links, rechts) => links - rechts);
+  const kuenftige = kuenftigeAusfaelle(ausfallMenge(regel)).sort((links, rechts) => links - rechts);
 
   if (kuenftige.length === 0) return grund;
 
@@ -1744,57 +1762,40 @@ function regelBeschreibung(regel){
 }
 
 function renderVerwaltung(){
+  // Zugeklappt sieht die Liste niemand; zeigeBereich baut sie beim Öffnen auf.
+  if (!document.getElementById("verwaltung").classList.contains("aktiv")) return;
+
   const liste = document.getElementById("regelListe");
   liste.textContent = "";
 
   if (REGELN.length === 0){
-    const leerEl = document.createElement("p");
+    const leerEl = element("p", "", "Noch keine Regeln eingetragen.");
     leerEl.style.color = "var(--text-muted)";
     leerEl.style.fontSize = "13px";
-    leerEl.textContent = "Noch keine Regeln eingetragen.";
     liste.appendChild(leerEl);
     return;
   }
 
   REGELN.forEach(regel => {
-    const zeile = document.createElement("div");
-    zeile.className = "regel-zeile" + (regel.id === bearbeiteId ? " wird-bearbeitet" : "");
+    const zeile = element("div", "regel-zeile" + (regel.id === bearbeiteId ? " wird-bearbeitet" : ""));
+    zeile.appendChild(farbChip(regel.farbe));
 
-    const chipEl = document.createElement("span");
-    chipEl.className = "system-chip";
-    chipEl.style.background = sichereFarbe(regel.farbe);
-    zeile.appendChild(chipEl);
-
-    const infoEl = document.createElement("div");
-    infoEl.className = "info";
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "name";
-    nameEl.textContent = regel.system;
-    infoEl.appendChild(nameEl);
-
-    const detailsEl = document.createElement("div");
-    detailsEl.className = "details";
-    detailsEl.textContent = regelBeschreibung(regel);
-    infoEl.appendChild(detailsEl);
-
+    const infoEl = element("div", "info");
+    infoEl.appendChild(element("div", "name", regel.system));
+    infoEl.appendChild(element("div", "details", regelBeschreibung(regel)));
     zeile.appendChild(infoEl);
 
-    const aktionenEl = document.createElement("div");
-    aktionenEl.className = "regel-aktionen";
+    const aktionenEl = element("div", "regel-aktionen");
 
-    const bearbeitenEl = document.createElement("button");
-    bearbeitenEl.className = "regel-bearbeiten";
-    bearbeitenEl.textContent = "Bearbeiten";
+    const bearbeitenEl = element("button", "regel-bearbeiten", "Bearbeiten");
     bearbeitenEl.setAttribute("aria-label", "Regel " + regel.system + " bearbeiten");
     bearbeitenEl.addEventListener("click", () => starteBearbeiten(regel));
     aktionenEl.appendChild(bearbeitenEl);
 
     const wartetAufBestaetigung = regel.id === loeschKandidat;
 
-    const loeschenEl = document.createElement("button");
-    loeschenEl.className = "regel-loeschen" + (wartetAufBestaetigung ? " bestaetigen" : "");
-    loeschenEl.textContent = wartetAufBestaetigung ? "Wirklich löschen?" : "Löschen";
+    const loeschenEl = element("button", "regel-loeschen" + (wartetAufBestaetigung ? " bestaetigen" : ""),
+      wartetAufBestaetigung ? "Wirklich löschen?" : "Löschen");
     loeschenEl.setAttribute("aria-label", wartetAufBestaetigung
       ? "Löschen von " + regel.system + " bestätigen"
       : "Regel " + regel.system + " löschen");
@@ -1808,13 +1809,9 @@ function renderVerwaltung(){
       }
 
       setzeLoeschKandidat(null);
-      REGELN = REGELN.filter(andere => andere.id !== regel.id);
       // Wird gerade genau diese Regel bearbeitet, muss das Formular zurück.
       if (bearbeiteId === regel.id) formularZuruecksetzen();
-
-      speichereRegeln(REGELN);
-      renderWoche();
-      renderVerwaltung();
+      setzeRegeln(REGELN.filter(andere => andere.id !== regel.id));
     });
     aktionenEl.appendChild(loeschenEl);
 
@@ -1828,26 +1825,7 @@ function renderVerwaltung(){
 function baueSlotAuswahl(){
   const container = document.getElementById("neuSlots");
   container.textContent = "";
-
-  ALLE_SLOTS.forEach(slot => {
-    const kachel = document.createElement("label");
-    kachel.className = "chk";
-
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.value = slot.typ;
-    box.id = "slot-" + slot.typ;
-
-    kachel.appendChild(box);
-    kachel.appendChild(document.createTextNode(slot.kurz));
-    container.appendChild(kachel);
-  });
-}
-
-function zeigeFormFehler(text){
-  const el = document.getElementById("formFehler");
-  el.textContent = text || "";
-  el.classList.toggle("aktiv", !!text);
+  ALLE_SLOTS.forEach(slot => container.appendChild(checkKachel(slot.typ, slot.kurz).kachel));
 }
 
 /* ============================================================
@@ -1856,12 +1834,20 @@ function zeigeFormFehler(text){
    ============================================================ */
 let bearbeiteId = null;
 
-function aktualisiereStartDatumFeld(){
+/* null, wenn kein Rhythmus gewählt ist – etwa beim Bearbeiten einer
+   Runde mit einem nicht mehr wählbaren Rhythmus. */
+function gewaehlterRhythmus(){
   const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
-  const rhythmus = gewaehlt ? gewaehlt.value : "jede_woche";
+  return gewaehlt ? gewaehlt.value : null;
+}
 
-  // Das Feld gibt es bei jedem Rhythmus; nur seine Bedeutung wechselt.
-  document.getElementById("feldStartDatum").style.display = "block";
+function gewaehlteSlots(){
+  return Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
+}
+
+/* Das Feld gibt es bei jedem Rhythmus; nur seine Bedeutung wechselt. */
+function aktualisiereStartDatumFeld(){
+  const rhythmus = gewaehlterRhythmus() || "jede_woche";
 
   let text;
   if (rhythmus === "einmalig"){
@@ -1891,8 +1877,7 @@ let gewaehlteAusfaelle = new Set();
 const AUSFALL_VORSCHAU = 8;
 
 function kurzMitWochentag(ts){
-  const tag = TAGE.find(eintrag => eintrag.iso === isoWochentag(ts));
-  return (tag ? tag.name + " " : "") + formatDatum(ts);
+  return tagVon(ts).name + " " + formatDatum(ts);
 }
 
 /* Bietet die nächsten Takttermine der Regel zum Abhaken an. Nur beim
@@ -1903,15 +1888,14 @@ function baueAusfallAuswahl(){
   const container = document.getElementById("neuAusfaelle");
   container.textContent = "";
 
-  const gewaehlt = document.querySelector('#neuRhythmusGroup input:checked');
-  const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
+  const rhythmus = gewaehlterRhythmus();
+  const slots = gewaehlteSlots();
 
   // Ohne gewählten Rhythmus (alte Runde, noch nicht umgestellt) gibt es keinen Takt.
-  if (bearbeiteId === null || !gewaehlt || gewaehlt.value === "einmalig" || slots.length === 0){
+  if (bearbeiteId === null || !rhythmus || rhythmus === "einmalig" || slots.length === 0){
     feld.style.display = "none";
     return;
   }
-  const rhythmus = gewaehlt.value;
 
   const entwurf = { rhythmus: rhythmus, startDatum: document.getElementById("neuStartDatum").value.trim() };
   const termine = [];
@@ -1929,10 +1913,7 @@ function baueAusfallAuswahl(){
 
   /* Bereits gespeicherte Ausfälle mit aufnehmen, auch wenn sie hinter der
      Vorschau liegen – sonst verschwänden sie beim nächsten Speichern. */
-  gewaehlteAusfaelle.forEach(text => {
-    const ts = ausIsoDatum(text);
-    if (ts !== null && ts >= heuteUTC()) termine.push(ts);
-  });
+  termine.push(...kuenftigeAusfaelle(gewaehlteAusfaelle));
 
   const sortiert = Array.from(new Set(termine)).sort((links, rechts) => links - rechts);
   if (sortiert.length === 0){
@@ -1943,20 +1924,12 @@ function baueAusfallAuswahl(){
   feld.style.display = "block";
   sortiert.forEach(ts => {
     const iso = alsIsoDatum(ts);
-    const kachel = document.createElement("label");
-    kachel.className = "chk";
-
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.value = iso;
+    const { kachel, box } = checkKachel(iso, kurzMitWochentag(ts));
     box.checked = gewaehlteAusfaelle.has(iso);
     box.addEventListener("change", () => {
       if (box.checked) gewaehlteAusfaelle.add(iso);
       else gewaehlteAusfaelle.delete(iso);
     });
-
-    kachel.appendChild(box);
-    kachel.appendChild(document.createTextNode(kurzMitWochentag(ts)));
     container.appendChild(kachel);
   });
 }
@@ -1975,7 +1948,7 @@ function formularZuruecksetzen(){
   gewaehlteAusfaelle = new Set();
   document.getElementById("neuSystem").value = "";
   document.getElementById("neuStartDatum").value = "";
-  document.getElementById("neuFarbe").value = "#7C9885";
+  document.getElementById("neuFarbe").value = STANDARD_FARBE;
   document.querySelectorAll('#neuSlots input').forEach(cb => { cb.checked = false; });
 
   const standard = document.querySelector('#neuRhythmusGroup input[value="jede_woche"]');
@@ -1983,7 +1956,7 @@ function formularZuruecksetzen(){
 
   aktualisiereStartDatumFeld();
   baueAusfallAuswahl();
-  zeigeFormFehler("");
+  zeigeFehler("formFehler", "");
   setzeFormularModus();
 }
 
@@ -2006,23 +1979,23 @@ function starteBearbeiten(regel){
   const radio = document.querySelector('#neuRhythmusGroup input[value="' + regel.rhythmus + '"]');
   if (radio) radio.checked = true;
 
+  // Nächster Termin nach dem bisherigen Takt – Vorschlag fürs Startdatum.
+  const ersterSlot = SLOT_NACH_TYP.get((regel.slots || [])[0]);
+  const vorschlag = ersterSlot ? rohtermin(regel, ersterSlot) : null;
+
   let hinweis = "";
   if (VERALTETE_RHYTHMEN.has(regel.rhythmus)){
     /* Nächsten Termin nach dem alten Takt als Startdatum vorschlagen:
        Mit "alle 2 Wochen" läuft die Runde dann im selben Wechsel weiter. */
-    const slot = SLOT_NACH_TYP.get((regel.slots || [])[0]);
-    const termin = slot ? rohtermin(regel, slot) : null;
-    if (termin !== null) document.getElementById("neuStartDatum").value = alsIsoDatum(termin);
+    if (vorschlag !== null) document.getElementById("neuStartDatum").value = alsIsoDatum(vorschlag);
     hinweis = "Diese Runde läuft noch nach " + SUFFIX[regel.rhythmus] + ". Das gibt es nicht mehr – " +
       "bitte einen Rhythmus wählen. Für denselben Wechsel: „alle 2 Wochen“, das Startdatum ist schon passend eingetragen.";
   } else if (regel.rhythmus !== "einmalig" && ausIsoDatum(regel.startDatum) === null){
     /* Aus der Zeit, als das Startdatum noch freiwillig war. Lässt sich der
        nächste Termin berechnen (wöchentlich), wird er vorgeschlagen; bei
        einem Takt ohne Startdatum gibt es nichts zu berechnen. */
-    const slot = SLOT_NACH_TYP.get((regel.slots || [])[0]);
-    const termin = slot ? rohtermin(regel, slot) : null;
-    if (termin !== null){
-      document.getElementById("neuStartDatum").value = alsIsoDatum(termin);
+    if (vorschlag !== null){
+      document.getElementById("neuStartDatum").value = alsIsoDatum(vorschlag);
       hinweis = "Für diese Runde war noch kein Startdatum eingetragen. Vorgeschlagen ist ihr nächster Termin – " +
         "bitte prüfen und speichern.";
     } else {
@@ -2033,7 +2006,7 @@ function starteBearbeiten(regel){
 
   aktualisiereStartDatumFeld();
   baueAusfallAuswahl();
-  zeigeFormFehler(hinweis);
+  zeigeFehler("formFehler", hinweis);
   setzeFormularModus();
   renderVerwaltung();
   document.getElementById("regelFormular").scrollIntoView({ block: "nearest" });
@@ -2046,23 +2019,22 @@ function formularLesen(){
   const startDatumFeld = document.getElementById("neuStartDatum");
 
   const system = systemFeld.value.trim();
-  const slots = Array.from(document.querySelectorAll('#neuSlots input:checked')).map(cb => cb.value);
-  const rhythmusInput = document.querySelector('#neuRhythmusGroup input:checked');
-  if (!rhythmusInput){
-    zeigeFormFehler("Bitte einen Rhythmus wählen.");
+  const slots = gewaehlteSlots();
+  const rhythmus = gewaehlterRhythmus();
+  if (!rhythmus){
+    zeigeFehler("formFehler", "Bitte einen Rhythmus wählen.");
     return null;
   }
-  const rhythmus = rhythmusInput.value;
   const farbe = document.getElementById("neuFarbe").value;
   const startDatumRoh = startDatumFeld.value.trim();
 
   if (!system){
-    zeigeFormFehler("Bitte einen System-Namen eintragen.");
+    zeigeFehler("formFehler", "Bitte einen System-Namen eintragen.");
     systemFeld.focus();
     return null;
   }
   if (slots.length === 0){
-    zeigeFormFehler("Bitte mindestens einen Slot auswählen.");
+    zeigeFehler("formFehler", "Bitte mindestens einen Slot auswählen.");
     return null;
   }
 
@@ -2070,20 +2042,16 @@ function formularLesen(){
 
   /* Nur künftige Ausfälle behalten: Ein vergangener wirkt sich auf nichts
      mehr aus und würde sich sonst über die Jahre ansammeln. */
-  const ausfaelle = Array.from(document.querySelectorAll('#neuAusfaelle input:checked'))
-    .map(box => box.value)
-    .filter(iso => {
-      const ts = ausIsoDatum(iso);
-      return ts !== null && ts >= heuteUTC();
-    })
-    .sort();
+  const ausfaelle = kuenftigeAusfaelle(Array.from(document.querySelectorAll('#neuAusfaelle input:checked'), box => box.value))
+    .sort((links, rechts) => links - rechts)
+    .map(alsIsoDatum);
 
   if (ausfaelle.length > 0 && rhythmus !== "einmalig") regel.ausfaelle = ausfaelle;
 
   if (rhythmus === "einmalig"){
     const ts = ausIsoDatum(startDatumRoh);
     if (ts === null){
-      zeigeFormFehler("Für einen einmaligen Termin bitte ein Datum angeben.");
+      zeigeFehler("formFehler", "Für einen einmaligen Termin bitte ein Datum angeben.");
       startDatumFeld.focus();
       return null;
     }
@@ -2097,8 +2065,7 @@ function formularLesen(){
     });
 
     if (unpassend.length > 0){
-      const tagName = TAGE.find(tag => tag.iso === wochentag);
-      zeigeFormFehler("Der " + formatDatum(ts) + " ist ein " + (tagName ? tagName.lang : "anderer Tag") +
+      zeigeFehler("formFehler", "Der " + formatDatum(ts) + " ist ein " + tagVon(ts).lang +
         ". Nicht dazu passend: " + unpassend.map(slotLabel).join(", ") + ".");
       return null;
     }
@@ -2113,7 +2080,7 @@ function formularLesen(){
      sich kein Termin bestimmen lässt, und auch bei wöchentlichen Runden
      soll feststehen, ab wann sie laufen. */
   if (ausIsoDatum(startDatumRoh) === null){
-    zeigeFormFehler(startDatumRoh
+    zeigeFehler("formFehler", startDatumRoh
       ? "Bitte ein gültiges Datum zwischen " + JAHR_MIN + " und " + JAHR_MAX + " wählen."
       : "Bitte den ersten Termin der Runde angeben.");
     startDatumFeld.focus();
@@ -2136,7 +2103,7 @@ function vergangenesDatumBestaetigt(ts){
   }
 
   gewarntesDatum = ts;
-  zeigeFormFehler("Der " + formatDatum(ts) + " liegt in der Vergangenheit – der Termin " +
+  zeigeFehler("formFehler", "Der " + formatDatum(ts) + " liegt in der Vergangenheit – der Termin " +
     "erscheint dann nicht in der Wochenansicht, sondern nur in dieser Liste. " +
     "Noch einmal klicken, um ihn trotzdem anzulegen.");
   return false;
@@ -2158,7 +2125,7 @@ function doppelterNameBestaetigt(system, eigeneId){
   }
 
   gewarnterName = vergleich;
-  zeigeFormFehler("Für \"" + system + "\" gibt es bereits eine Regel. " +
+  zeigeFehler("formFehler", "Für \"" + system + "\" gibt es bereits eine Regel. " +
     "Noch einmal klicken, um sie trotzdem anzulegen.");
   return false;
 }
@@ -2178,7 +2145,7 @@ document.getElementById("btnExport").addEventListener("click", () => {
   const bis = document.getElementById("exportBis");
   if (!von.value) von.value = alsIsoDatum(heuteUTC());
   if (!bis.value) bis.value = alsIsoDatum(heuteUTC() + 27 * TAG_MS);
-  zeigeExportFehler("");
+  zeigeFehler("exportFehler", "");
   von.focus();
 });
 
@@ -2220,12 +2187,6 @@ function zeigeBereich(welcher){
   if (welcher === "anmeldung") document.getElementById("passwortFeld").focus();
 }
 
-function zeigeAnmeldeFehler(text){
-  const el = document.getElementById("anmeldeFehler");
-  el.textContent = text || "";
-  el.classList.toggle("aktiv", !!text);
-}
-
 /* Wird vom Firebase-Modul gerufen, sobald sich der Anmeldezustand
    ändert – auch beim Laden, wenn die Freischaltung noch gilt. */
 function ppbFreischaltung(offen){
@@ -2239,7 +2200,7 @@ function ppbFreischaltung(offen){
     return;
   }
 
-  zeigeAnmeldeFehler("");
+  zeigeFehler("anmeldeFehler", "");
   document.getElementById("passwortFeld").value = "";
 
   /* Die Seite startet immer in der Anzeige. Nur wer gerade aktiv
@@ -2265,23 +2226,23 @@ document.getElementById("btnEntsperren").addEventListener("click", () => {
   const passwort = feld.value;
 
   if (!passwort){
-    zeigeAnmeldeFehler("Bitte das Passwort eingeben.");
+    zeigeFehler("anmeldeFehler", "Bitte das Passwort eingeben.");
     feld.focus();
     return;
   }
   if (typeof window.ppbAnmelden !== "function"){
-    zeigeAnmeldeFehler("Keine Verbindung zur Datenbank – Freischalten ist gerade nicht möglich.");
+    zeigeFehler("anmeldeFehler", "Keine Verbindung zur Datenbank – Freischalten ist gerade nicht möglich.");
     return;
   }
 
-  zeigeAnmeldeFehler("");
+  zeigeFehler("anmeldeFehler", "");
   entsperrenAngefordert = true;
   document.getElementById("btnEntsperren").disabled = true;
 
   window.ppbAnmelden(passwort)
     .catch(meldung => {
       entsperrenAngefordert = false;
-      zeigeAnmeldeFehler(meldung);
+      zeigeFehler("anmeldeFehler", meldung);
     })
     .finally(() => { document.getElementById("btnEntsperren").disabled = false; });
 });
@@ -2324,10 +2285,8 @@ document.getElementById("btnHinzufuegen").addEventListener("click", () => {
     REGELN.push(Object.assign({ id: neueId() }, eingabe));
   }
 
-  speichereRegeln(REGELN);
   formularZuruecksetzen();
-  renderWoche();
-  renderVerwaltung();
+  setzeRegeln(REGELN);
 });
 
 let zuruecksetzenTimer = null;
@@ -2351,12 +2310,9 @@ document.getElementById("btnZuruecksetzen").addEventListener("click", () => {
   btn.classList.remove("bestaetigen");
   btn.textContent = "Alle Regeln löschen";
 
-  REGELN = standardKopie();
   setzeLoeschKandidat(null);
-  speichereRegeln(REGELN);
   formularZuruecksetzen();
-  renderWoche();
-  renderVerwaltung();
+  setzeRegeln(standardKopie());
 });
 
 /* ============================================================
@@ -2453,10 +2409,7 @@ function pruefeUebernahme(){
 
 document.getElementById("btnUebernehmen").addEventListener("click", () => {
   document.getElementById("uebernahme").classList.remove("aktiv");
-  REGELN = mitIds(LOKALE_REGELN_BEIM_START);
-  speichereRegeln(REGELN);
-  renderWoche();
-  renderVerwaltung();
+  setzeRegeln(mitIds(LOKALE_REGELN_BEIM_START));
 });
 
 document.getElementById("btnUebernahmeVerwerfen").addEventListener("click", () => {
@@ -2470,6 +2423,7 @@ setTimeout(() => {
 
 baueSlotAuswahl();
 aktualisiereStartDatumFeld();
+document.getElementById("neuFarbe").value = STANDARD_FARBE;
 renderWoche();
 </script>
 
