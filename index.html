@@ -6,32 +6,34 @@
 <title>Spieltage-Übersicht</title>
 <style>
   :root{
-    /* Thema "Botanical Garden": heller Cremegrund, Farngrün als Akzent,
-       Terrakotta für Konflikte, Ringelblume für mögliche Konflikte.
+    /* Thema "Modern Minimalist": Grautöne, Anthrazit als Akzent, eine
+       Schrift für alles. Rot für Konflikte und Bernstein für mögliche
+       Konflikte bleiben bewusst farbig – in reinem Grau wären die beiden
+       Zustände nicht mehr voneinander und von "belegt" zu unterscheiden.
        Hell durchgehend – damit übernehmen auch Eingabefelder,
        Scrollbalken und Auswahlmenüs das helle Schema. */
     color-scheme: light;
 
-    --bg: #F5F3ED;
+    --bg: #F2F3F4;
     --panel: #FFFFFF;
-    --panel-line: #DCD6C8;
-    --akzent: #4A7C59;
+    --panel-line: #D3D3D3;
+    --akzent: #36454F;
     --auf-akzent: #FFFFFF;
-    --text: #1F2A22;
-    --text-muted: #5F665F;
-    --conflict: #B7472A;
-    --conflict-bg: #F8E4DD;
-    --conflict-text: #6E2A18;
-    --conflict-zeit: #9A3B22;
-    /* Ringelblume ist als Schrift auf Weiß zu blass – Text nimmt das
-       dunklere --moeglich-text, Rahmen und Punkt die volle Farbe. */
-    --moeglich: #F9A620;
-    --moeglich-bg: #FEF3DC;
-    --moeglich-text: #8A5A00;
-    --free-line: #C9C2B2;
+    --text: #1E262C;
+    /* Schiefergrau #708090 ist als kleine Schrift auf Weiß zu blass,
+       darum eine dunklere Stufe davon. */
+    --text-muted: #5C6873;
+    --conflict: #B03A2E;
+    --conflict-bg: #FBEAE8;
+    --conflict-text: #6B2219;
+    --conflict-zeit: #9A3328;
+    --moeglich: #D99A2B;
+    --moeglich-bg: #FDF4E3;
+    --moeglich-text: #7A5410;
+    --free-line: #BFC4C9;
 
     --schrift: "DejaVu Sans", Verdana, system-ui, sans-serif;
-    --schrift-titel: "DejaVu Serif", Georgia, "Times New Roman", serif;
+    --schrift-titel: var(--schrift);
   }
 
   * { box-sizing: border-box; }
@@ -333,7 +335,7 @@
       --bg: #FFFFFF;
       --panel: #FFFFFF;
       --panel-line: #B4B4B4;
-      --akzent: #2F5A3B;
+      --akzent: #2B3740;
       --auf-akzent: #FFFFFF;
       --text: #111111;
       --text-muted: #555555;
