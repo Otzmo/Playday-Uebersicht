@@ -4,26 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spieltage-Übersicht</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* Die Seite ist bewusst durchgehend dunkel – damit übernehmen auch
-       Eingabefelder, Scrollbalken und Auswahlmenüs das dunkle Schema. */
-    color-scheme: dark;
+    /* Thema "Botanical Garden": heller Cremegrund, Farngrün als Akzent,
+       Terrakotta für Konflikte, Ringelblume für mögliche Konflikte.
+       Hell durchgehend – damit übernehmen auch Eingabefelder,
+       Scrollbalken und Auswahlmenüs das helle Schema. */
+    color-scheme: light;
 
-    --bg: #1B1D21;
-    --panel: #24272C;
-    --panel-line: #33363C;
-    --gold: #C6A15B;
-    --text: #E9E4D8;
-    --text-muted: #8B8D92;
-    --conflict: #C1443B;
-    --conflict-bg: #2E2222;
-    --moeglich: #B98A3E;
-    --moeglich-bg: #2C2620;
-    --free-line: #3A3D43;
+    --bg: #F5F3ED;
+    --panel: #FFFFFF;
+    --panel-line: #DCD6C8;
+    --akzent: #4A7C59;
+    --auf-akzent: #FFFFFF;
+    --text: #1F2A22;
+    --text-muted: #5F665F;
+    --conflict: #B7472A;
+    --conflict-bg: #F8E4DD;
+    --conflict-text: #6E2A18;
+    --conflict-zeit: #9A3B22;
+    /* Ringelblume ist als Schrift auf Weiß zu blass – Text nimmt das
+       dunklere --moeglich-text, Rahmen und Punkt die volle Farbe. */
+    --moeglich: #F9A620;
+    --moeglich-bg: #FEF3DC;
+    --moeglich-text: #8A5A00;
+    --free-line: #C9C2B2;
+
+    --schrift: "DejaVu Sans", Verdana, system-ui, sans-serif;
+    --schrift-titel: "DejaVu Serif", Georgia, "Times New Roman", serif;
   }
 
   * { box-sizing: border-box; }
@@ -32,7 +40,7 @@
     margin:0;
     background:var(--bg);
     color:var(--text);
-    font-family:'Inter', sans-serif;
+    font-family: var(--schrift);
     -webkit-font-smoothing: antialiased;
   }
 
@@ -40,14 +48,14 @@
 
   header{ margin-bottom: 28px; display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; }
 
-  header .club{ font-size: 13px; color: var(--gold); margin: 0 0 6px; }
+  header .club{ font-size: 13px; color: var(--akzent); margin: 0 0 6px; }
 
-  h1{ font-family:'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0 0 10px; }
+  h1{ font-family: var(--schrift-titel); font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0 0 10px; }
 
   header p.sub{ color: var(--text-muted); font-size: 14px; margin: 0; line-height: 1.5; }
 
   button{
-    font-family: 'Inter', sans-serif;
+    font-family: var(--schrift);
     cursor: pointer;
     border: none;
   }
@@ -64,7 +72,7 @@
     font-size: 13px;
     font-weight: 500;
   }
-  .btn-bearbeiten.aktiv{ background: var(--gold); color: #1B1D21; border-color: var(--gold); }
+  .btn-bearbeiten.aktiv{ background: var(--akzent); color: var(--auf-akzent); border-color: var(--akzent); }
 
   .legende{
     display:flex; flex-wrap: wrap; gap: 14px;
@@ -83,7 +91,7 @@
 
   .uebernahme{
     display: none; margin: 18px 0 0; padding: 14px 16px;
-    background: var(--panel); border: 1px solid var(--gold); border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--akzent); border-radius: 10px;
     font-size: 13px; line-height: 1.5;
   }
   .uebernahme.aktiv{ display: block; }
@@ -91,13 +99,13 @@
   .uebernahme-knoepfe{ display: flex; gap: 8px; flex-wrap: wrap; }
   .uebernahme-knoepfe button{ flex: 1; min-width: 150px; margin-top: 0; }
 
-  #speicherStatus.getrennt{ color: var(--moeglich); }
+  #speicherStatus.getrennt{ color: var(--moeglich-text); }
   #speicherStatus.fehlt{ color: var(--conflict); }
 
   #warnungen{
     margin: 18px 0 0; padding: 12px 14px; background: var(--conflict-bg);
     border: 1px solid var(--conflict); border-radius: 10px; font-size: 13px;
-    color: #E8C9C4; display: none;
+    color: var(--conflict-text); display: none;
   }
   #warnungen.aktiv{ display:block; }
   #warnungen strong{ color: var(--conflict); display:block; margin-bottom:6px; font-size:12.5px; }
@@ -126,13 +134,13 @@
   .slot.frei .inhalt{ color: var(--text-muted); font-weight: 400; }
 
   .slot.konflikt{ background: var(--conflict-bg); border-color: var(--conflict); }
-  .slot.konflikt .zeit{ color: #D69890; }
+  .slot.konflikt .zeit{ color: var(--conflict-zeit); }
   .slot .hinweis{ font-size: 12px; margin-top: 4px; }
   .slot.konflikt .hinweis{ color: var(--conflict); }
 
   .slot.moeglich{ background: var(--moeglich-bg); border-color: var(--moeglich); }
-  .slot.moeglich .zeit{ color: #D8B27E; }
-  .slot.moeglich .hinweis{ color: var(--moeglich); }
+  .slot.moeglich .zeit{ color: var(--moeglich-text); }
+  .slot.moeglich .hinweis{ color: var(--moeglich-text); }
 
   .system-chip{ display:inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink:0; }
 
@@ -141,8 +149,8 @@
   #verwaltung.aktiv{ display: block; }
 
   .verwaltung-titel{
-    font-family:'Fraunces', serif; font-size: 16px; font-weight: 600;
-    color: var(--gold); margin: 0 0 14px; padding-bottom: 8px;
+    font-family: var(--schrift-titel); font-size: 16px; font-weight: 600;
+    color: var(--akzent); margin: 0 0 14px; padding-bottom: 8px;
     border-bottom: 1px solid var(--panel-line);
   }
 
@@ -154,7 +162,7 @@
   .regel-zeile .info{ flex: 1; }
   .regel-zeile .info .name{ font-weight: 500; }
   .regel-zeile .info .details{ color: var(--text-muted); font-size: 12px; margin-top: 1px; }
-  .regel-zeile.wird-bearbeitet{ border-color: var(--gold); }
+  .regel-zeile.wird-bearbeitet{ border-color: var(--akzent); }
 
   .regel-aktionen{ display: flex; gap: 6px; flex-shrink: 0; }
   .regel-loeschen{
@@ -165,9 +173,9 @@
     background: transparent; color: var(--text-muted); font-size: 12px;
     padding: 6px 10px; border-radius: 6px; border: 1px solid var(--panel-line);
   }
-  .regel-bearbeiten:hover{ color: var(--gold); border-color: var(--gold); }
+  .regel-bearbeiten:hover{ color: var(--akzent); border-color: var(--akzent); }
   /* Zweiter Klick bestätigt – Browser-Dialoge sind hier nicht verfügbar. */
-  .regel-loeschen.bestaetigen{ background: var(--conflict); color: #FFF3F1; font-weight: 500; }
+  .regel-loeschen.bestaetigen{ background: var(--conflict); color: var(--auf-akzent); font-weight: 500; }
   .zuruecksetzen.bestaetigen{ color: var(--conflict); }
 
   .neue-regel{
@@ -175,7 +183,7 @@
     border: 1px solid var(--panel-line); border-radius: 10px;
   }
   .form-titel{
-    margin: 0 0 12px; font-size: 11.5px; color: var(--gold);
+    margin: 0 0 12px; font-size: 11.5px; color: var(--akzent);
     text-transform: uppercase; letter-spacing: 0.07em;
   }
   .anmeldung{
@@ -198,7 +206,7 @@
   .anmeldung input[type="password"]{
     width: 100%; padding: 9px 10px; background: var(--bg);
     border: 1px solid var(--panel-line); border-radius: 6px;
-    color: var(--text); font-family: 'Inter', sans-serif; font-size: 13.5px;
+    color: var(--text); font-family: var(--schrift); font-size: 13.5px;
   }
   .neue-regel input[type="color"]{
     width: 44px; height: 32px; padding: 2px; background: var(--bg);
@@ -216,10 +224,10 @@
   /* ".neue-regel label" setzt display:block und ist spezifischer als .chk –
      ohne diese Zeile greift der gap nicht und das Kästchen klebt am Text. */
   .neue-regel label.chk{ display: flex; }
-  .chk input{ accent-color: var(--gold); margin: 0; }
-  .chk:has(input:checked){ border-color: var(--gold); color: var(--gold); }
+  .chk input{ accent-color: var(--akzent); margin: 0; }
+  .chk:has(input:checked){ border-color: var(--akzent); color: var(--akzent); }
   .btn-hinzufuegen{
-    margin-top: 4px; width: 100%; background: var(--gold); color: #1B1D21;
+    margin-top: 4px; width: 100%; background: var(--akzent); color: var(--auf-akzent);
     padding: 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
   }
   .btn-abbrechen{
@@ -231,14 +239,14 @@
   .form-fehler{
     display: none; margin: 0 0 10px; padding: 9px 11px;
     background: var(--conflict-bg); border: 1px solid var(--conflict);
-    border-radius: 6px; font-size: 12.5px; color: #E8C9C4;
+    border-radius: 6px; font-size: 12.5px; color: var(--conflict-text);
   }
   .form-fehler.aktiv{ display: block; }
 
   footer{ margin-top: 40px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
   /* --- Druckansicht des Exports ---
-     Auf dem Bildschirm ein helles Blatt auf dunklem Grund, damit man sieht,
+     Auf dem Bildschirm ein weißes Blatt mit Schatten, damit man sieht,
      was aufs Papier kommt. Die Farben stehen hier fest und hängen nicht an
      den Tokens: das Blatt ist in beiden Fällen hell. */
   body.druck-offen .wrap{ display: none; }
@@ -249,12 +257,12 @@
   .druck-blatt{
     max-width: 760px; margin: 14px auto 60px; padding: 34px 38px 40px;
     background: #FFFFFF; color: #1B1D21; border-radius: 4px;
-    box-shadow: 0 6px 28px rgba(0,0,0,.45);
+    box-shadow: 0 4px 22px rgba(31,42,34,.16);
     color-scheme: light;
   }
   .druck-kopf{ border-bottom: 2px solid #C6A15B; padding-bottom: 12px; margin-bottom: 6px; }
   .druck-kopf .club{ font-size: 12px; color: #8C6D2E; margin: 0 0 4px; }
-  .druck-kopf h2{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 26px; margin: 0 0 6px; }
+  .druck-kopf h2{ font-family: var(--schrift-titel); font-weight: 600; font-size: 26px; margin: 0 0 6px; }
   .druck-kopf .zeitraum{ font-size: 13.5px; margin: 0; }
   .druck-kopf .stand{ font-size: 11.5px; color: #6A6A6A; margin: 4px 0 0; }
   .druck-woche{ margin-top: 20px; }
@@ -325,21 +333,23 @@
       --bg: #FFFFFF;
       --panel: #FFFFFF;
       --panel-line: #B4B4B4;
-      --gold: #6B5420;
+      --akzent: #2F5A3B;
+      --auf-akzent: #FFFFFF;
       --text: #111111;
       --text-muted: #555555;
       --conflict: #A02A22;
       --conflict-bg: #FFFFFF;
       --moeglich: #7A5A1E;
       --moeglich-bg: #FFFFFF;
+      --moeglich-text: #7A5A1E;
+      --conflict-text: #111111;
+      --conflict-zeit: #555555;
       --free-line: #CCCCCC;
     }
     .header-buttons, #verwaltung, #exportPanel, .druck-leiste{ display: none !important; }
     .wrap{ max-width: none; padding: 0; }
     .tag{ break-inside: avoid; }
-    /* Diese drei Farben stehen fest im Stylesheet, nicht in den Tokens. */
-    .slot.konflikt .zeit, .slot.moeglich .zeit{ color: #555555; }
-    #warnungen{ color: #111111; }
+    .slot.moeglich .zeit{ color: var(--text-muted); }
     .druck-blatt{ max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
   }
   @page{ size: A4; margin: 14mm; }
