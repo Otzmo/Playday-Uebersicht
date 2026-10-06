@@ -1,13 +1,17 @@
 # Hinweise für Claude
 
-## Nicht ungefragt veröffentlichen
+## Änderungen: erst Artefakt, dann push
 
-**Kein `git push` ohne ausdrückliche Aufforderung.** Ändern, testen und lokal
-committen ist in Ordnung; der Push wartet auf ein klares "push" vom Nutzer.
+1. Jede Änderung zuerst im Artefakt „Spieltage-Übersicht“
+   (https://claude.ai/artifact/1kr6aesQgbHLjAwDDLobvF) zeigen, also die
+   geänderte `index.html` dorthin veröffentlichen. Vorher nichts auf GitHub tun:
+   kein Commit, kein Push, kein Branch, kein Pull Request.
+2. Erst wenn der Nutzer „push“ schreibt: alles direkt auf `main` committen und
+   pushen, `index.html` wird dabei überschrieben. Kein Feature-Branch, kein Pull
+   Request.
 
-Nach einem lokalen Commit kurz melden, dass etwas zum Pushen bereitliegt.
-Wichtig, weil ungepushte Commits nur in der Sitzungsumgebung liegen und mit ihr
-verschwinden — liegt länger etwas herum, daran erinnern.
+Ungepushte Änderungen liegen nur in der Sitzungsumgebung und verschwinden mit
+ihr — liegt länger etwas herum, daran erinnern.
 
 Ein Push auf `main` geht hier direkt live: GitHub Pages veröffentlicht den
 Stand automatisch unter https://otzmo.github.io/Playday-Uebersicht/
