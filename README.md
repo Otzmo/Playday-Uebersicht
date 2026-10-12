@@ -187,11 +187,20 @@ Regeln der Datenbank:
       ".read": true,
       ".write": "auth != null && auth.token.email == 'philip.scherer85@gmail.com'"
     },
+    "termine": {
+      ".read": true,
+      "$id": {
+        ".write": "auth != null && auth.token.email == 'philip.scherer85@gmail.com' && $id.matches(/^[-_A-Za-z0-9]{1,40}$/)",
+        ".validate": "newData.hasChildren(['datum', 'art', 'beginn', 'ende']) && newData.child('datum').isString() && newData.child('datum').val().matches(/^20[0-9][0-9]-[01][0-9]-[0-3][0-9]$/) && newData.child('art').isString() && newData.child('art').val().length > 0 && newData.child('art').val().length <= 30 && newData.child('beginn').isString() && newData.child('beginn').val().matches(/^[0-2][0-9]:[0-5][0-9]$/) && newData.child('ende').isString() && newData.child('ende').val().matches(/^[0-2][0-9]:[0-5][0-9]$/)",
+        "$feld": { ".validate": "$feld == 'datum' || $feld == 'art' || $feld == 'beginn' || $feld == 'ende'" }
+      }
+    },
     "anmeldungen": {
       ".read": true,
-      "$datum": {
+      "$termin": {
+        ".write": "auth != null && auth.token.email == 'philip.scherer85@gmail.com' && !newData.exists()",
         "$id": {
-          ".write": "auth != null && $datum.matches(/^2027-[0-9][0-9]-[0-9][0-9]$/) && ((!data.exists() && newData.child('uid').val() == auth.uid) || (!newData.exists() && (data.child('uid').val() == auth.uid || auth.token.email == 'philip.scherer85@gmail.com')))",
+          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() == auth.uid && root.child('termine/' + $termin).exists()) || (!newData.exists() && (data.child('uid').val() == auth.uid || auth.token.email == 'philip.scherer85@gmail.com')))",
           ".validate": "newData.hasChildren(['name', 'uid', 'zeit']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30 && newData.child('zeit').val() == now",
           "$feld": { ".validate": "$feld == 'name' || $feld == 'uid' || $feld == 'zeit'" }
         }
@@ -201,18 +210,21 @@ Regeln der Datenbank:
 }
 ```
 
-Alles außerhalb von `regeln` und `anmeldungen` bleibt gesperrt.
+Alles außerhalb von `regeln`, `termine` und `anmeldungen` bleibt gesperrt.
 
 `regeln` darf nur das Bearbeiter-Konto schreiben, nicht bloß "irgendwer
 angemeldet": Seit `anmeldungen` dazugekommen ist, ist die anonyme Anmeldung
 aktiv, und mit `auth != null` könnte sonst jeder Besucher die Übersicht ändern.
 
-### Anmeldungen zu den Spieltagen (Battle March)
+### Termine und Anmeldungen (Battle March)
 
-`/anmeldungen/<datum>/<id>` gehört nicht zu dieser Seite, sondern zum Reiter
-"Termine 2027" der Seite https://otzmo.github.io/Battle-March/ (Repo
-Otzmo/Battle-March). Sie nutzt dasselbe Firebase-Projekt. Jeder Eintrag ist
-`{ name, uid, zeit }`. Besucher melden sich dafür **anonym** an
+`/termine/<id>` (`{ datum, art, beginn, ende }`) und
+`/anmeldungen/<termin-id>/<id>` gehören nicht zu dieser Seite, sondern zum
+Reiter "Termine" der Seite https://otzmo.github.io/Battle-March/ (Repo
+Otzmo/Battle-March). Sie nutzt dasselbe Firebase-Projekt. Termine trägt nur das
+Bearbeiter-Konto ein. Eine GitHub Action im Battle-March-Repo liest `/termine`
+alle 15 Minuten und schreibt daraus die abonnierbare Kalenderdatei. Jede
+Anmeldung ist `{ name, uid, zeit }` und nur für bestehende Termine möglich. Besucher melden sich dafür **anonym** an
 (Authentication → Anmeldeverfahren → Anonym, aktiviert). Die anonyme `uid`
 erkennt das Gerät, das einen Namen eingetragen hat. Nur dieses Gerät oder das
 Bearbeiter-Konto (als Admin) darf den Namen wieder löschen. Die automatische
