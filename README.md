@@ -185,13 +185,39 @@ Regeln der Datenbank:
   "rules": {
     "regeln": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email == 'philip.scherer85@gmail.com'"
+    },
+    "anmeldungen": {
+      ".read": true,
+      "$datum": {
+        "$id": {
+          ".write": "auth != null && $datum.matches(/^2027-[0-9][0-9]-[0-9][0-9]$/) && ((!data.exists() && newData.child('uid').val() == auth.uid) || (!newData.exists() && (data.child('uid').val() == auth.uid || auth.token.email == 'philip.scherer85@gmail.com')))",
+          ".validate": "newData.hasChildren(['name', 'uid', 'zeit']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30 && newData.child('zeit').val() == now",
+          "$feld": { ".validate": "$feld == 'name' || $feld == 'uid' || $feld == 'zeit'" }
+        }
+      }
     }
   }
 }
 ```
 
-Alles außerhalb von `regeln` bleibt gesperrt.
+Alles außerhalb von `regeln` und `anmeldungen` bleibt gesperrt.
+
+`regeln` darf nur das Bearbeiter-Konto schreiben, nicht bloß "irgendwer
+angemeldet": Seit `anmeldungen` dazugekommen ist, ist die anonyme Anmeldung
+aktiv, und mit `auth != null` könnte sonst jeder Besucher die Übersicht ändern.
+
+### Anmeldungen zu den Spieltagen (Battle March)
+
+`/anmeldungen/<datum>/<id>` gehört nicht zu dieser Seite, sondern zum Reiter
+"Termine 2027" der Seite https://otzmo.github.io/Battle-March/ (Repo
+Otzmo/Battle-March). Sie nutzt dasselbe Firebase-Projekt. Jeder Eintrag ist
+`{ name, uid, zeit }`. Besucher melden sich dafür **anonym** an
+(Authentication → Anmeldeverfahren → Anonym, aktiviert). Die anonyme `uid`
+erkennt das Gerät, das einen Namen eingetragen hat. Nur dieses Gerät oder das
+Bearbeiter-Konto (als Admin) darf den Namen wieder löschen. Die automatische
+Bereinigung anonymer Konten ist bewusst aus, sonst könnten Geräte ihre
+Anmeldungen nach 30 Tagen nicht mehr selbst entfernen.
 
 ### Anmeldung
 
